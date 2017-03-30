@@ -1,0 +1,30 @@
+<html lang='fr'>
+  <head>
+    <meta charset="utf-8" />
+    <title metal:define-slot="page-title">${title | ''}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="">
+    <link rel="shortcut icon" href="${request.static_path('autonomie_oidc_provider:static/img/favicon.ico')}" />
+    <more tal:omit-tag="" metal:define-slot="head-more"></more>
+  </head>
+
+  <body>
+    <div class='main_content_wrapper'>
+
+      <!-- Header stuff -->
+      <div metal:define-slot='header' />
+      <!-- End Header stuff -->
+
+      <!-- Main content stuff -->
+      <div class="container-fluid" metal:define-slot="body">
+      </div>
+      <!-- End main content stuff -->
+
+      <footer metal:define-slot='footer'>
+
+      </footer>
+
+    </div>
+      <script metal:define-slot='footerjs'/>
+  </body>
+</html>
