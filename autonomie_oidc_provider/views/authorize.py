@@ -102,7 +102,7 @@ def handle_authcode(request, client, redirection_uri, state=None):
     db.flush()
 
     qparams['code'] = auth_code.authcode
-    if state:
+    if state is not None:
         qparams['state'] = state
 
     parts = ParseResult(

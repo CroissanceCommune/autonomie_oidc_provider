@@ -68,12 +68,12 @@ class OIDCSchema(AuthSchema):
     state = colander.SchemaNode(
         colander.String(),
         widget=deform.widget.HiddenWidget(),
-        default=None,
+        missing=colander.drop,
     )
     nonce = colander.SchemaNode(
         colander.String(),
         widget=deform.widget.HiddenWidget(),
-        default=None,
+        missing=colander.drop,
     )
 
 
