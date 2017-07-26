@@ -5,7 +5,7 @@ from pyramid.authentication import SessionAuthenticationPolicy
 from sqlalchemy import engine_from_config
 
 from autonomie.utils.session import get_session_factory
-from autonomie.models.initialize import initialize_sql
+from autonomie_base.models.initialize import initialize_sql
 
 from autonomie_oidc_provider.security import RootFactory
 
@@ -35,6 +35,7 @@ def main(global_config, **settings):
     config.include('.layout')
     config.include('.views.login')
     config.include('.views.authorize')
+    config.include('.views.token')
 
     config.include('.views.index')
     initialize_sql(engine)
