@@ -75,3 +75,12 @@ class InvalidToken(BaseOauth2Error):
     https://tools.ietf.org/html/rfc6749#section-3.1
     """
     error_name = 'invalid_token'
+
+
+class InvalidCredentials(BaseOauth2Error):
+    """
+    The credentials provided in the request header are not handled by this Open
+    id connect provider
+    Only Basic authentication headers are handled
+    """
+    error_name = "invalid_grant"
