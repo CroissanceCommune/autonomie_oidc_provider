@@ -17,9 +17,11 @@ from pyramid.httpexceptions import (
 )
 from pyramid.security import authenticated_userid
 
-from autonomie.models.base import DBSESSION
+from autonomie_base.models.base import DBSESSION
+from autonomie.models.user import User
 from autonomie_oidc_provider.exceptions import InvalidRequest
 from autonomie_oidc_provider.models import (
+    get_client_by_client_id,
     OidcClient,
     OidcCode,
     OidcToken,
@@ -92,14 +94,19 @@ def handle_authcode(request, client, redirection_uri, state=None):
 
     :returns: A HTTPFound instance
     """
+    logger.debug("Handling the creation of an auth code")
     db = DBSESSION()
     parts = urlparse(redirection_uri.uri)
     qparams = dict(parse_qsl(parts.query))
 
-    user_id = authenticated_userid(request)
-    auth_code = OidcCode(client, user_id)
+    user_login = authenticated_userid(request)
+    user_id = User.query().filter_by(login=user_login).first().id
+    auth_code = OidcCode(client, user_id, redirection_uri.uri)
     db.add(auth_code)
     db.flush()
+    logger.debug("An auth_code has been added")
+    logger.debug(auth_code)
+    logger.debug(auth_code.id)
 
     qparams['code'] = auth_code.authcode
     if state is not None:
@@ -124,7 +131,7 @@ def authentication_view(request):
     http://openid.net/specs/openid-connect-core-1_0.html#AuthRequest
     """
     client_id = request.params.get('client_id')
-    client = OidcClient.query().filter_by(client_id=client_id).first()
+    client = get_client_by_client_id(client_id)
 
     if client is None:
         logger.error('Unknown client')
