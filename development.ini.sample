@@ -12,20 +12,23 @@ pyramid.debug_notfound = true
 pyramid.debug_routematch = false
 pyramid.default_locale_name = fr
 pyramid.includes =
+    pyramid_tm
     pyramid_debugtoolbar
     pyramid_chameleon
     pyramid_layout
     js.deform
 
+# The sqlalchemy url access
 sqlalchemy.url = mysql://autonomie:autonomie@localhost/autonomie?charset=utf8
 sqlalchemy.echo=False
 sqlalchemy.encoding=UTF8
 sqlalchemy.pool_recycle=7200
 sqlalchemy.pool_size=100
 #### BEAKER SESSION AND CACHE CONFIGURATION ####
+# The path to the session files
 session.type=file
-session.data_dir = /home/gas/autonomie/autonomie/data/sessions/data
-session.lock_dir = /home/gas/autonomie/autonomie/data/sessions/lock
+session.data_dir = %(here)/data/sessions/data
+session.lock_dir = %(here)/data/sessions/lock
 session.cookie_on_exception = true
 session.auto=True
 session.secret=mysecretpassphraseforsessionencoding
@@ -38,8 +41,12 @@ cache.short_term.expire = 60
 cache.default_term.expire = 300
 cache.long_term.expire = 20
 
+# The main salt used for encryption
 oidc.salt=6e8fRrrefnoUcolwHgGhJ7M42JuyacgUDvO7whwV85DeZJ10PSOn
-oidc.require_ssl = false
+# Here we can disable ssl requirement for test purpose
+oidc.require_ssl = true
+# The issuer url
+oidc.issuer_url = 'http://example.com/oidc'
 
 # By default, the toolbar only appears for clients from IP addresses
 # '127.0.0.1' and '::1'.
