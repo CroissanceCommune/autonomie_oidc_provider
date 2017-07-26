@@ -16,13 +16,18 @@ def add_client_command(args, env):
     :param dict args: The arguments passed by command line
     :param dict env: an environment dict (pyramid_env returned after bootstrap)
     """
-    from autonomie.models.base import DBSESSION
+    from autonomie_base.models.base import DBSESSION
     from autonomie_oidc_provider.models import (
         OidcClient,
         OidcRedirectUri,
     )
     redirect_uri = get_value(args, 'uri')
     client_name = get_value(args, 'client')
+    client_scopes = get_value(args, 'scopes')
+    cert_salt = get_value(args, 'cert_salt', '')
+
+    if 'openid' not in client_scopes:
+        client_scopes = 'openid ' + client_scopes
 
     if redirect_uri is None or client_name is None:
         raise KeyError("Missing mandatory argument")
@@ -37,23 +42,26 @@ def add_client_command(args, env):
 
     db = DBSESSION()
 
-    salt = env['registry'].settings['oidc.salt']
-    client = OidcClient(salt=salt, name=client_name)
+    client = OidcClient(
+        name=client_name,
+        scopes=client_scopes,
+        cert_salt=cert_salt,
+    )
     secret = client.new_client_secret()
     db.add(client)
     db.flush()
     redirecturi = OidcRedirectUri(client=client, uri=redirect_uri)
     db.add(redirecturi)
     print(
-    """New client {client.name} created :
+        """New client {client.name} created :
 
-        OpenId connect tokens :
-          client id : {client.client_id}
-          client secret : {secret}
+            OpenId connect tokens :
+            client id : {client.client_id}
+            client secret : {secret}
 
-          WARNING : Those informations should be kept confidential since they
-          are identification tokens
-    """.format(client=client, secret=secret)
+            WARNING : Those informations should be kept confidential since they
+            are identification tokens
+        """.format(client=client, secret=secret)
     )
 
 
@@ -64,7 +72,7 @@ def revoke_client_command(args, env):
     :param dict args: The arguments passed by command line
     :param dict env: an environment dict (pyramid_env returned after bootstrap)
     """
-    from autonomie.models.base import DBSESSION
+    from autonomie_base.models.base import DBSESSION
     from autonomie_oidc_provider.models import (
         OidcClient,
     )
@@ -96,7 +104,7 @@ def refresh_secret_command(args, env):
     :param dict args: The arguments passed by command line
     :param dict env: an environment dict (pyramid_env returned after bootstrap)
     """
-    from autonomie.models.base import DBSESSION
+    from autonomie_base.models.base import DBSESSION
     from autonomie_oidc_provider.models import (
         OidcClient,
     )
@@ -112,6 +120,7 @@ def refresh_secret_command(args, env):
         raise KeyError("Unknown client")
 
     secret = client.new_client_secret()
+    client.revoked = False
     db.merge(client)
     db.flush()
 
@@ -132,7 +141,7 @@ def manage():
     """Autonomie OpenId Connect Provider Management
 
     Usage:
-        oidc-manage <config_uri> clientadd --client=<client> --uri=<redirect_uri>
+        oidc-manage <config_uri> clientadd --client=<client> --uri=<redirect_uri> --scopes=<scopes> --cert_salt=<cert_salt>
         oidc-manage <config_uri> clientrevoke --client_id=<client_id>
         oidc-manage <config_uri> clientrefresh --client_id=<client_id>
 
