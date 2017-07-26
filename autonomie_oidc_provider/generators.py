@@ -14,7 +14,8 @@
 import time
 import random
 import hashlib
-from base64 import b64decode
+from base64 import b64encode
+import binascii
 
 def _get_hash():
     """
@@ -26,6 +27,16 @@ def _get_hash():
     sha.update(str(random.random()).encode('utf8'))
     sha.update(str(time.time()).encode('utf8'))
     return sha
+
+def gen_salt():
+    """
+    Generates a random salt str
+
+    :returns: a salt string
+    :rtype: str
+    """
+    return _get_hash().hexdigest()
+
 
 def gen_client_id():
     """
@@ -67,5 +78,6 @@ def crypt_secret(secret, salt):
     :rtype: str
     """
     assert isinstance(secret, bytes)
-    salt = b64decode(salt.encode('utf-8'))
-    return hashlib.pbkdf2_hmac('sha256', secret, salt, 100000)
+    salt = b64encode(salt.encode('utf-8'))
+    hash_ = hashlib.pbkdf2_hmac('sha256', secret, salt, 100000)
+    return binascii.hexlify(hash_)
