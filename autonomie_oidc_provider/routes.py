@@ -3,3 +3,4 @@ def includeme(config):
     config.add_route('/', '/')
     config.add_route('/authorize', '/authorize')
     config.add_route('/login', '/login')
+    config.add_route('/token', '/token')
