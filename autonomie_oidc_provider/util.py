@@ -12,10 +12,13 @@
 
 import base64
 import logging
+import calendar
 
 from pyramid.threadlocal import get_current_registry
+from autonomie_oidc_provider.exceptions import InvalidCredentials
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+
 
 def oidc_settings(key=None, default=None):
     """
@@ -36,33 +39,53 @@ def oidc_settings(key=None, default=None):
             return value
     else:
         return dict((x.split('.', 1)[1], y) for x, y in settings.items()
-            if x.startswith('oidc.'))
+                    if x.startswith('oidc.'))
 
-def getClientCredentials(request):
+
+def get_client_credentials(request):
+    """
+    Get the client credentials from the request headers
+
+    :param obj request: Pyramid request object
+    :returns: 2-uple (client_id, client_secret)
+    :rtype: tuple
+
+    :raises KeyError: When no Authorization header is present
+    :raises InvalidCredentials: When credentials are not in basic format
+    """
     if 'Authorization' in request.headers:
         auth = request.headers.get('Authorization')
     elif 'authorization' in request.headers:
         auth = request.headers.get('authorization')
     else:
-        log.debug('no authorization header found')
-        return False
-
-    if (not auth.lower().startswith('bearer') and
-        not auth.lower().startswith('basic')):
-        log.debug('authorization header not of type bearer or basic: %s'
-            % auth.lower())
-        return False
+        logger.error('No authorization header found')
+        raise KeyError("No authorization header found")
 
     parts = auth.split()
     if len(parts) != 2:
-        return False
+        raise InvalidCredentials(
+            error_description="Invalid authorization header"
+        )
 
     token_type = parts[0].lower()
-    token = base64.b64decode(parts[1]).decode('utf8')
+    if token_type != 'basic':
+        logger.error("Unsupported authentication mechanism")
+        raise InvalidCredentials(
+            error_description="Unsupported authentication mechanism"
+        )
 
-    if token_type == 'basic':
+    else:
+        token = base64.b64decode(parts[1]).decode('utf8')
+
         client_id, client_secret = token.split(':')
-        request.client_id = client_id
-        request.client_secret = client_secret
 
-    return token_type, token
+    return client_id, client_secret
+
+
+def dt_to_timestamp(datetime_obj):
+    """
+    Convert the given datetime_obj to an utc timestamp
+    :param obj datetime_obj: An utc aware datetime object
+    :returns: A timestamp
+    """
+    return calendar.timegm(datetime_obj.timetuple())
