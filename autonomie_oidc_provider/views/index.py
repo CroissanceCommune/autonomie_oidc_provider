@@ -6,6 +6,11 @@
 from pyramid.security import NO_PERMISSION_REQUIRED
 
 
+CLIENT_ID = "a21dcf08752f7ede0c39d531a5177b5566a54441ff2b9f20b249a8ab043f7c4d"
+CLIENT_SECRET = "0a89d8932bd37f684a982fa10723a764b6d5ba0f19a52e2441b4bc3dd6de4af9"
+CLIENT_URI = "http://gaston:6543/play"
+
+
 def index_view(request):
     """
     Simple index view
@@ -17,8 +22,8 @@ def index_view(request):
         _query={
             'response_type': 'code',
             'scope': 'openid',
-            'redirect_uri': 'http://gaston:1234',
-            'client_id': '7dd49f6f72f04e10c1d600d741a2be0d10e83a43b7fa790003649076fa606c6e',
+            'redirect_uri': CLIENT_URI,
+            'client_id': CLIENT_ID,
         }
     )
     return dict(path=path)
