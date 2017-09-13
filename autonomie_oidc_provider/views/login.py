@@ -161,7 +161,7 @@ def forbidden_view(request):
     path = request.matched_route.name
     req_params = request.params.items()
     req_params += (('nextpage', path),)
-    loc = request.route_url('/login', _query=req_params)
+    loc = request.route_path('/login', _query=req_params)
     return HTTPFound(loc)
 
 

@@ -10,10 +10,21 @@
 # or fitness for a particular purpose. See the MIT License for full details.
 #
 
-
+import sys
 import time
 import random
 import hashlib
+
+if getattr(hashlib, 'pbkdf2_hmac', None) is None:
+    try:
+        from backports.pbkdf2 import pbkdf2_hmac
+    except:
+        print("Install https://pypi.python.org/pypi/backports.pbkdf2/")
+        sys.exit(1)
+    hash_tool = pbkdf2_hmac
+else:
+    hash_tool = hashlib.pbkdf2_hmac
+
 from base64 import b64encode
 import binascii
 
@@ -79,5 +90,5 @@ def crypt_secret(secret, salt):
     """
     assert isinstance(secret, bytes)
     salt = b64encode(salt.encode('utf-8'))
-    hash_ = hashlib.pbkdf2_hmac('sha256', secret, salt, 100000)
+    hash_ = hash_tool('sha256', secret, salt, 100000)
     return binascii.hexlify(hash_)
