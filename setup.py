@@ -35,7 +35,7 @@ entry_points = {
         "autonomie_oidc_provider=autonomie_oidc_provider.fanstatic:lib"
     ],
     "console_scripts": [
-        "oidc-manager=autonomie_oidc_provider.scripts.manager:manage"
+        "oidc-manage=autonomie_oidc_provider.scripts.manager:manage"
     ]
 }
 
