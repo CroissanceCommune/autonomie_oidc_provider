@@ -1,5 +1,0 @@
-<metal:block use-macro="main_template">
-  <div metal:fill-slot="body">
-    <a class='btn btn-default' href="${path}">Ask for an authorization code</a>
-  </div>
-</metal:block>
