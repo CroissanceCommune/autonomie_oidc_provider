@@ -57,6 +57,8 @@ def get_client_credentials(request):
         auth = request.headers.get('Authorization')
     elif 'authorization' in request.headers:
         auth = request.headers.get('authorization')
+    elif 'client_id' in request.POST and 'client_secret' in request.POST:
+        return request.POST['client_id'], request.POST['client_secret']
     else:
         logger.error('No authorization header found')
         raise KeyError("No authorization header found")
