@@ -16,7 +16,11 @@ from autonomie_oidc_provider.exceptions import (
     InvalidCredentials,
     # UnauthorizedClient,
 )
-from autonomie_oidc_provider.scope_consumer import ProfileScope
+from autonomie_oidc_provider.scope_consumer import (
+    ProfileScope,
+    OpenIdScope,
+)
+
 from autonomie_oidc_provider.util import get_client_credentials
 from autonomie_oidc_provider.views import require_ssl
 from autonomie_oidc_provider.models import (
@@ -44,6 +48,9 @@ def collect_claims(user_id, scopes):
     for scope in scopes:
         if scope == 'profile':
             factory = ProfileScope()
+            result.update(factory.produce(user))
+        elif scope == 'openid':
+            factory = OpenIdScope()
             result.update(factory.produce(user))
     return result
 
