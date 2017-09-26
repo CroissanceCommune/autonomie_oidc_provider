@@ -3,8 +3,13 @@
 #       * TJEBBES Gaston <g.t@majerti.fr>
 #       * Arezki Feth <f.a@majerti.fr>;
 #       * Miotte Julien <j.m@majerti.fr>;
-import jwt
 import datetime
+
+from jwkest.jws import (
+    JWS,
+    left_hash,
+)
+from jwkest.jwk import SYMKey
 
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
@@ -18,7 +23,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import synonym
 
 from .util import (
-    oidc_settings,
     dt_to_timestamp,
 )
 
@@ -37,7 +41,7 @@ from autonomie_base.models.base import (
 )
 
 
-SECRET = "Test"
+MAC = 'HS256'
 
 
 def get_client_by_client_id(client_id, valid=True):
@@ -303,6 +307,13 @@ class OidcToken(DBBASE):
         }
         return token
 
+    def at_hash(self):
+        """
+        Returns a "at_hash" as described here
+        http://openid.net/specs/openid-connect-core-1_0.html#HybridIDToken
+        """
+        return left_hash(self.access_token.encode("utf-8"), MAC)
+
 
 class OidcIdToken(DBBASE):
     __table_args__ = default_table_args
@@ -320,6 +331,7 @@ class OidcIdToken(DBBASE):
 
     def __init__(self, issuer, client, code):
         self.client = client
+        self.client_id = client.id
         self.sub = code.user_id
         self.issuer = issuer
         self.issue_time = datetime.datetime.utcnow()
@@ -345,8 +357,8 @@ class OidcIdToken(DBBASE):
     def __json__(self, request, claims=None):
         result = {
             'iss': self.issuer,
-            'sub': self.sub,
-            'aud': self.client_id,
+            'sub': int(self.sub),
+            'aud': self.aud,
             'exp': dt_to_timestamp(self.expiration_time),
             'iat': dt_to_timestamp(self.issue_time),
         }
@@ -357,17 +369,33 @@ class OidcIdToken(DBBASE):
                     result[key] = value
         return result
 
-    def __jwt__(self, request, claims):
+    def _get_key_object(self, key):
+        """
+        Return the JWS Signing key, we simply use Symetrical keys based on the
+        client_secret to sign the id token
+
+        :param str key: The key used for encryption
+        :rtype: obj
+        :returns: A key object implementing jwkest.jwk.Key class
+        """
+        return SYMKey(key=key, alg=MAC)
+
+    def __jwt__(self, request, claims, client_secret):
         """
         Jwt tokens encoded with the client_secret as key
-
+        :param obj request; The pyramid request object
         :param dict claims: Dict containing userdatas that should be added to
         the current request (standard claims are described here :
         http://openid.net/specs/openid-connect-core-1_0.html#StandardClaims )
+        :param str client_secret: The original secret credential used to sign
+        the JWT
+        :returns: The ID token as a JWS as described in
+        https://tools.ietf.org/html/rfc7515
+        :rtype: str
         """
         json_datas = self.__json__(request, claims)
-        jwt_obj = jwt.encode(json_datas, self.client.cert_salt)
-        return jwt_obj
+        _jws = JWS(json_datas, alg=MAC)
+        return _jws.sign_compact([self._get_key_object(client_secret)])
 
 
 def includeme(config):
