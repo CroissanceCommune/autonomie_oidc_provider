@@ -16,6 +16,7 @@ from autonomie_oidc_provider.exceptions import (
     InvalidCredentials,
     # UnauthorizedClient,
 )
+from autonomie_oidc_provider.scope_consumer import ProfileScope
 from autonomie_oidc_provider.util import get_client_credentials
 from autonomie_oidc_provider.views import require_ssl
 from autonomie_oidc_provider.models import (
@@ -27,40 +28,6 @@ from autonomie_oidc_provider.models import (
 
 
 logger = logging.getLogger(__name__)
-
-
-class Scope(object):
-    key = None
-    attributes = ()
-
-    def produce(self, user_object):
-        res = {}
-        for label, data_key in self.attributes:
-            if data_key:
-                res[label] = getattr(user_object, data_key, '')
-            else:
-                # Not implemented
-                res[label] = ''
-        return res
-
-
-class OpenIdScope(Scope):
-    key = 'openid'
-    attributes = (
-        ('user_id', 'id'),
-    )
-
-
-class ProfileScope(Scope):
-    key = 'profile'
-    attributes = (
-        ('name', 'label'),
-        ('firstname', 'firstname'),
-        ('lastname', 'lastname'),
-        ('email', 'email'),
-        ('login', 'login'),
-        ('groups', 'groups'),
-    )
 
 
 def collect_claims(user_id, scopes):
@@ -81,7 +48,7 @@ def collect_claims(user_id, scopes):
     return result
 
 
-def handle_authcode_token(request, client, code, claims):
+def handle_authcode_token(request, client, code, claims, client_secret):
     """
     Handle the token response for authentication code request types
 
@@ -98,6 +65,8 @@ def handle_authcode_token(request, client, code, claims):
     :param obj client: A OidcClient
     :param obj code: A OidcCode
     :param dict claims: Claims queried by the given client
+    :param str client_secret: The secret key used to authenticate (used for
+    encryption)
     :returns: A dict to be used as json response
     :rtype: dict
     """
@@ -113,13 +82,18 @@ def handle_authcode_token(request, client, code, claims):
         code
     )
     DBSESSION().add(id_token)
+    DBSESSION().flush()
+
+    claims['at_hash'] = token.at_hash()
 
     result = token.__json__(request)
-    result['id_token'] = id_token.__jwt__(request, claims)
+    logger.debug("Signing with %s" % client_secret)
+    result['id_token'] = id_token.__jwt__(request, claims, client_secret)
 
     if 'state' in request.POST:
         result['state'] = request.POST['state']
 
+    logger.debug("Returning the json datas : %s" % result)
     return result
 
 
@@ -226,7 +200,7 @@ def token_view(request):
 
     claims = collect_claims(code.user_id, scopes)
 
-    resp = handle_authcode_token(request, client, code, claims)
+    resp = handle_authcode_token(request, client, code, claims, client_secret)
     return resp
 
 
