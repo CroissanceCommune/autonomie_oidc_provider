@@ -5,10 +5,10 @@
 #       * Miotte Julien <j.m@majerti.fr>;
 import datetime
 
-from autonomie_base.date import format_short_date
+from autonomie_base.utils.date import format_short_date
 
 FORMATTERS = {
-    long: int
+    long: int,
     datetime.date: format_short_date,
     datetime.datetime: format_short_date
 }
@@ -20,8 +20,8 @@ def format_res_for_encoding(res):
             res[key] = format_res_for_encoding(val)
     elif isinstance(res, (tuple, list)):
         res[key] = [format_res_for_encoding(i) for i in val]
-    elif typeof(res) in FORMATTERS:
-        res = FORMATTERS[typeof(res)](res)
+    elif type(res) in FORMATTERS:
+        res = FORMATTERS[type(res)](res)
 
     return res
 
