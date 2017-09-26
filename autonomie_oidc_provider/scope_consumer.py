@@ -3,10 +3,14 @@
 #       * TJEBBES Gaston <g.t@majerti.fr>
 #       * Arezki Feth <f.a@majerti.fr>;
 #       * Miotte Julien <j.m@majerti.fr>;
+import datetime
 
+from autonomie_base.date import format_short_date
 
 FORMATTERS = {
     long: int
+    datetime.date: format_short_date,
+    datetime.datetime: format_short_date
 }
 
 
