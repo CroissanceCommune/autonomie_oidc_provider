@@ -204,6 +204,7 @@ class OidcCode(DBBASE):
     authcode = Column(Unicode(64), unique=True, nullable=False)
     uri = Column(Unicode(256), nullable=False)
     expires_in = Column(Integer, nullable=False, default=10*60)
+    nonce = Coluln(Unicode(256))
 
     revoked = Column(Boolean, default=False)
     revocation_date = Column(DateTime)

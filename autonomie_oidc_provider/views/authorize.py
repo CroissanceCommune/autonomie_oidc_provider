@@ -22,9 +22,7 @@ from autonomie.models.user import User
 from autonomie_oidc_provider.exceptions import InvalidRequest
 from autonomie_oidc_provider.models import (
     get_client_by_client_id,
-    OidcClient,
     OidcCode,
-    OidcToken,
     OidcRedirectUri,
 )
 from autonomie_oidc_provider.views import require_ssl
@@ -81,7 +79,7 @@ def get_redirection_uri(redirect_uri, client):
     return result
 
 
-def handle_authcode(request, client, redirection_uri, state=None):
+def handle_authcode(request, client, redirection_uri, state=None, nonce=None):
     """
     Handle the authorization code first step redirection (redirect the browser
     with the authcode embeded in the url)
@@ -91,6 +89,8 @@ def handle_authcode(request, client, redirection_uri, state=None):
     :param obj redirection_uri: The OidcRedirectUri instance
     :param str state: The state initially transmitted by the Resource Consumer
     (RC)
+    :param str nonce: The nonce initially transmitted by the Resource Consumer
+    (RC) (cross-request token)
 
     :returns: A HTTPFound instance
     """
@@ -102,6 +102,8 @@ def handle_authcode(request, client, redirection_uri, state=None):
     user_login = authenticated_userid(request)
     user_id = User.query().filter_by(login=user_login).first().id
     auth_code = OidcCode(client, user_id, redirection_uri.uri)
+    if nonce is not None:
+        auth_code.nonce = nonce
     db.add(auth_code)
     db.flush()
     logger.debug("An auth_code has been added")
@@ -152,9 +154,10 @@ def authentication_view(request):
     resp = None
     response_type = request.params.get('response_type')
     state = request.params.get('state')
+    nonce = request.params.get('nonce')
 
     if response_type == 'code':
-        resp = handle_authcode(request, client, redirection_uri, state)
+        resp = handle_authcode(request, client, redirection_uri, state, nonce)
     else:
         resp = raise_authentication_error(
             redirect_uri,

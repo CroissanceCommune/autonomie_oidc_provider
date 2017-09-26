@@ -207,6 +207,10 @@ def token_view(request):
 
     claims = collect_claims(code.user_id, scopes)
 
+    if code.nonce is not None:
+        claims['nonce'] = code.nonce
+
+
     resp = handle_authcode_token(request, client, code, claims, client_secret)
     return resp
 
