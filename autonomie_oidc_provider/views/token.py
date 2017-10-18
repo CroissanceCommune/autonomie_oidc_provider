@@ -14,6 +14,7 @@ from autonomie_base.models.base import DBSESSION
 from autonomie.models.user import User
 from autonomie_oidc_provider.exceptions import (
     InvalidCredentials,
+    InvalidRequest,
     # UnauthorizedClient,
 )
 from autonomie_oidc_provider.scope_consumer import (
@@ -134,18 +135,12 @@ def token_view(request):
     """
     try:
         client_id, client_secret = get_client_credentials(request)
-    except KeyError:
+    except InvalidRequest as exc:
         logger.exception("Invalid client authentication")
-        return {
-            'error': "invalid_request",
-            "error_description": "Missing Authentication headers"
-        }
-    except InvalidCredentials:
+        return exc.datas
+    except InvalidCredentials as exc:
         logger.exception("Invalid client authentication")
-        return {
-            'error': "invalid_request",
-            "error_description": "Invalid Authentication headers"
-        }
+        return exc.datas
 
     # Client
     # Check secret

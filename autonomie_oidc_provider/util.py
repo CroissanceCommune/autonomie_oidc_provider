@@ -15,7 +15,10 @@ import logging
 import calendar
 
 from pyramid.threadlocal import get_current_registry
-from autonomie_oidc_provider.exceptions import InvalidCredentials
+from autonomie_oidc_provider.exceptions import (
+    InvalidCredentials,
+    InvalidRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +64,7 @@ def get_client_credentials(request):
         return request.POST['client_id'], request.POST['client_secret']
     else:
         logger.error('No authorization header found')
-        raise KeyError("No authorization header found")
+        raise InvalidRequest(error_description="No authorization header found")
 
     parts = auth.split()
     if len(parts) != 2:
@@ -91,3 +94,38 @@ def dt_to_timestamp(datetime_obj):
     :returns: A timestamp
     """
     return calendar.timegm(datetime_obj.timetuple())
+
+
+def get_access_token(request):
+    """
+    Retrieve the access token provided in the request headers
+
+    Only handle Authorization headers
+
+    :param obj request: The Pyramid request object
+    :returns: An Access token
+    """
+
+    if 'Authorization' in request.headers:
+        auth = request.headers.get('Authorization')
+    elif 'authorization' in request.headers:
+        auth = request.headers.get('authorization')
+    else:
+        logger.error('No authorization header found')
+        raise InvalidRequest(error_description="No authorization header found")
+
+    parts = auth.split()
+    if len(parts) != 2:
+        raise InvalidCredentials(
+            error_description="Invalid authorization header (not a bearer token)"
+        )
+
+    token_type = parts[0].lower()
+    if token_type != 'Bearer':
+        logger.error("Unsupported token format")
+        raise InvalidCredentials(
+            error_description="Unsupported token format",
+        )
+    else:
+        token = parts[1].strip()
+    return token
