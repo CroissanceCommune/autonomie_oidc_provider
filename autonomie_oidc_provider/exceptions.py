@@ -11,17 +11,17 @@
 #
 
 
-class BaseOauth2Error(dict):
+class BaseOauth2Error(Exception):
     error_name = None
 
     def __init__(self, **kw):
-        dict.__init__(self)
+        self.datas = {}
         if kw:
-            self.update(kw)
-        self['error'] = self.error_name
+            self.datas.update(kw)
+        self.datas['error'] = self.error_name
 
-        if 'error_description' not in self:
-            self['error_description'] = self.__doc__
+        if 'error_description' not in self.datas:
+            self.datas['error_description'] = self.__doc__
 
 
 class InvalidRequest(BaseOauth2Error):
