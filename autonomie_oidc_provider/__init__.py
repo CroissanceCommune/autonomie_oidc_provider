@@ -36,6 +36,7 @@ def main(global_config, **settings):
     config.include('.views.login')
     config.include('.views.authorize')
     config.include('.views.token')
+    config.include('.views.userinfo')
 
     config.include('.views.index')
     initialize_sql(engine)
