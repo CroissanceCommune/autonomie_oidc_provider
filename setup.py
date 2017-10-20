@@ -40,7 +40,7 @@ entry_points = {
 }
 
 setup(name='autonomie_oidc_provider',
-      version='0.1b6',
+      version='0.1b7',
       description='autonomie_oidc_provider',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[
