@@ -205,6 +205,7 @@ class OidcCode(DBBASE):
     uri = Column(Unicode(256), nullable=False)
     expires_in = Column(Integer, nullable=False, default=10*60)
     nonce = Column(Unicode(256))
+    scopes = Column(Unicode(256))
 
     revoked = Column(Boolean, default=False)
     revocation_date = Column(DateTime)
@@ -214,10 +215,11 @@ class OidcCode(DBBASE):
     client_id = Column(Integer, ForeignKey(OidcClient.id))
     client = relationship(OidcClient)
 
-    def __init__(self, client, user_id, uri):
+    def __init__(self, client, user_id, uri, scopes):
         self.client = client
         self.user_id = user_id
         self.uri = uri
+        self.scopes = scopes
 
         self.authcode = gen_token(self.client)
 
@@ -314,6 +316,13 @@ class OidcToken(DBBASE):
         http://openid.net/specs/openid-connect-core-1_0.html#HybridIDToken
         """
         return left_hash(self.access_token.encode("utf-8"), MAC)
+
+    @classmethod
+    def find(cls, token_str):
+        token_query = cls.query().filter_by(access_token=token_str)
+        token_query = token_query.filter_by(revoked=False)
+        token = token_query.first()
+        return token
 
 
 class OidcIdToken(DBBASE):
