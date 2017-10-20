@@ -9,49 +9,58 @@ User info endpoint as described in :
 """
 import logging
 from pyramid.security import NO_PERMISSION_REQUIRED
-from pyramid.httpexceptions import HTTPUnauthorized
 
-from autonomie_base.utils.ascii import (
-    force_ascii,
-)
 from autonomie_oidc_provider.exceptions import (
     InvalidCredentials,
     InvalidRequest,
+    InvalidToken,
 )
 from autonomie_oidc_provider.util import get_access_token
+from autonomie_oidc_provider.models import OidcToken
+from autonomie_oidc_provider.scope_consumer import (
+    collect_claims,
+)
+from autonomie_oidc_provider.views import http_json_error
 
 
 logger = logging.getLogger(__name__)
 
 
-def unauthorized_response(exception):
+def validate_token(token_str):
     """
-    Return a 401 error filling headers with the datas described there :
-        https://tools.ietf.org/html/rfc6750#section-3
+    Validate a bearer token trying to retrieve the associated OidcToken
     """
-    print(force_ascii(u"error=%s,error_description=%s" % (
-        exception.datas['error'],
-        exception.datas['error_description'].replace('\n', '.'),
-    ))
-    )
-    headers = [(
-        "WWW-Authenticate",
-        force_ascii(u"error=%s,error_description=%s" % (
-            exception.datas['error'], exception.datas['error_description'],
-        )),
-    )]
-    return HTTPUnauthorized(headers=headers)
+    token = OidcToken.find(token_str)
+    if token is None:
+        raise InvalidToken(error_description=u"Unknown token")
+    if token.is_revoked():
+        raise InvalidToken(error_description=u"Expired token")
+    return token
 
 
 def userinfo_view(request):
     """
     The userinfo view
     """
+    logger.debug("Calling the userinfo_view")
+    logger.debug("  + POST params")
+    logger.debug(request.POST)
+    logger.debug("  + GET params")
+    logger.debug(request.GET)
     try:
         token = get_access_token(request)
     except (InvalidRequest, InvalidCredentials) as exc:
         logger.exception(u"Error")
-        return unauthorized_response(exc)
+        return http_json_error(request, exc)
+
+    try:
+        oidc_token = validate_token(token)
+    except InvalidToken as exc:
+        return http_json_error(request, exc)
+
+    # Here the user is authenticated
+    scopes = oidc_token.client.scopes
+    return collect_claims(token.user_id, scopes)
 
 
 def includeme(config):
