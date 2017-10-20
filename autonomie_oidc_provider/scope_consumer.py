@@ -6,6 +6,7 @@
 import datetime
 
 from autonomie_base.utils.date import format_short_date
+from autonomie.models.user import User
 
 FORMATTERS = {
     long: int,
@@ -63,3 +64,24 @@ class ProfileScope(Scope):
         ('login', 'login'),
         # ('groups', 'groups'),
     )
+
+
+def collect_claims(user_id, scopes):
+    """
+    Collect the claims described by the requested scopes for the given user_id
+
+    :param int user_id: The id of the user
+    :param list scopes: The list of scopes we want to collect claims for
+    :returns: The claims
+    :rtype: dict
+    """
+    result = {}
+    user = User.get(user_id)
+    for scope in scopes:
+        if scope == 'profile':
+            factory = ProfileScope()
+            result.update(factory.produce(user))
+        elif scope == 'openid':
+            factory = OpenIdScope()
+            result.update(factory.produce(user))
+    return result
