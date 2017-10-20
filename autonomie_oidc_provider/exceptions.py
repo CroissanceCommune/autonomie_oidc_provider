@@ -10,9 +10,16 @@
 # or fitness for a particular purpose. See the MIT License for full details.
 #
 
+from pyramid.httpexceptions import (
+    HTTPUnauthorized,
+    HTTPBadRequest,
+    HTTPForbidden,
+)
+
 
 class BaseOauth2Error(Exception):
     error_name = None
+    response_class = HTTPBadRequest
 
     def __init__(self, **kw):
         self.datas = {}
@@ -43,6 +50,7 @@ class InvalidClient(BaseOauth2Error):
     https://tools.ietf.org/html/rfc6749#section-5.2
     """
     error_name = 'invalid_client'
+    response_class = HTTPUnauthorized
 
 
 class UnauthorizedClient(BaseOauth2Error):
@@ -65,6 +73,14 @@ class UnsupportedGrantType(BaseOauth2Error):
     error_name = 'unsupported_grant_type'
 
 
+class InvalidScope(BaseOauth2Error):
+    """
+    The requested scope is invalid, unknown, malformed, or
+    exceeds the scope granted by the resource owner.
+    """
+    error_name = "invalid_scope"
+
+
 class InvalidToken(BaseOauth2Error):
     """
     The access token provided is expired, revoked, malformed, or
@@ -75,6 +91,19 @@ class InvalidToken(BaseOauth2Error):
     https://tools.ietf.org/html/rfc6749#section-3.1
     """
     error_name = 'invalid_token'
+    response_class = HTTPUnauthorized
+
+
+class InsufficientScope(BaseOauth2Error):
+    """
+    The request requires higher privileges than provided by the
+    access token.  The resource server SHOULD respond with the HTTP
+    403 (Forbidden) status code and MAY include the "scope"
+    attribute with the scope necessary to access the protected
+    resource.
+    """
+    error_name = 'insufficient_scope'
+    response_class = HTTPForbidden
 
 
 class InvalidCredentials(BaseOauth2Error):
@@ -84,3 +113,4 @@ class InvalidCredentials(BaseOauth2Error):
     Only Basic authentication headers are handled
     """
     error_name = "invalid_grant"
+    response_class = HTTPForbidden
