@@ -11,19 +11,21 @@ from six.moves.urllib.parse import (
 )
 
 from autonomie_base.models.base import DBSESSION
-from autonomie.models.user import User
 from autonomie_oidc_provider.exceptions import (
     InvalidCredentials,
     InvalidRequest,
-    # UnauthorizedClient,
+    InvalidClient,
+    UnauthorizedClient,
 )
 from autonomie_oidc_provider.scope_consumer import (
-    ProfileScope,
-    OpenIdScope,
+    collect_claims,
 )
 
 from autonomie_oidc_provider.util import get_client_credentials
-from autonomie_oidc_provider.views import require_ssl
+from autonomie_oidc_provider.views import (
+    require_ssl,
+    http_json_error,
+)
 from autonomie_oidc_provider.models import (
     get_client_by_client_id,
     get_code_by_client_id,
@@ -33,27 +35,6 @@ from autonomie_oidc_provider.models import (
 
 
 logger = logging.getLogger(__name__)
-
-
-def collect_claims(user_id, scopes):
-    """
-    Collect the claims described by the requested scopes for the given user_id
-
-    :param int user_id: The id of the user
-    :param list scopes: The list of scopes we want to collect claims for
-    :returns: The claims
-    :rtype: dict
-    """
-    result = {}
-    user = User.get(user_id)
-    for scope in scopes:
-        if scope == 'profile':
-            factory = ProfileScope()
-            result.update(factory.produce(user))
-        elif scope == 'openid':
-            factory = OpenIdScope()
-            result.update(factory.produce(user))
-    return result
 
 
 def handle_authcode_token(request, client, code, claims, client_secret):
@@ -105,6 +86,98 @@ def handle_authcode_token(request, client, code, claims, client_secret):
     return result
 
 
+def validate_client(client_id, client_secret):
+    """
+    Retrieve the client given a client id and validate it
+
+    :param str client_id: The client id
+    :param str client_secret: The client secret object
+
+    :returns: A OidcClient instance
+    :raises: InvalidClient
+    :raises: UnauthorizedClient
+    """
+    client = get_client_by_client_id(client_id)
+    if client is None:
+        logger.error("Invalid oidc client : %s", client_id)
+        raise InvalidClient(error_description=u"Unknown client")
+    elif not client.check_secret(client_secret):
+        logger.warn("Invalid oidc client_secret : %s", client_secret)
+        raise UnauthorizedClient(error_description=u"Unknown client")
+
+    return client
+
+
+def validate_grant_type(grant_type):
+    """
+    Validate it's a supported grant type
+
+    :param str grant_type: The asked grant_type
+    :raises: InvalidCredentials
+    """
+    if grant_type != 'authorization_code':
+        logger.warn("Invalid grant type : %s", grant_type)
+        raise InvalidRequest(error_description="unsupported_grant_type")
+
+
+def validate_code(code, client):
+    """
+    Retrieve an OidcCode instance
+
+    :param str code: The auth code
+    :param obj client: The OidcClient instance
+    :returns: the OidcCode instance
+    :raises: InvalidCredentials
+    """
+    if code is not None:
+        code = get_code_by_client_id(client.id, code)
+
+    if code is None:
+        logger.warn("Wrong auth code provided")
+        raise InvalidCredentials(error_description="Invalid auth code")
+    return code
+
+
+def validate_redirect_uri(redirect_uri, code):
+    """
+    Check the given redirect_uri
+
+    :param str redirect_uri: redirect_uri found in the request params
+    :param obj code: OidcCode instance
+    :raises: InvalidCredentials
+    """
+    redirect_uri = unquote(redirect_uri)
+    if redirect_uri is None or code.uri != redirect_uri:
+        logger.error(
+            "Provided redirect uri {0} doesn't match the "
+            "expected one {1}".format(redirect_uri, code.uri)
+        )
+        raise InvalidCredentials(
+            error_description="Invalid redirect_uri parameter"
+        )
+    return redirect_uri
+
+
+def validate_scopes(scope, client):
+    """
+    Check the scopes are valid
+    :param str scope: The scope string (space-delimited list)
+    :param obj client: The OidcClient
+    :returns: The scopes str list
+    :raises: InvalidRequest
+    """
+    if scope is not None:
+        scopes = scope.split(' ')
+        if 'openid' not in scopes or not client.check_scope(scopes):
+            logger.error("Invalid list of requested scopes : %s", scopes)
+            raise InvalidRequest(
+                error_description="Invalid scope parameter"
+            )
+    else:
+        scopes = ['openid']
+    return scopes
+
+
 @require_ssl
 def token_view(request):
     """
@@ -137,10 +210,10 @@ def token_view(request):
         client_id, client_secret = get_client_credentials(request)
     except InvalidRequest as exc:
         logger.exception("Invalid client authentication")
-        return exc.datas
+        return http__json_error(request, exc)
     except InvalidCredentials as exc:
         logger.exception("Invalid client authentication")
-        return exc.datas
+        return http_json_error(request, exc)
 
     # Client
     # Check secret
@@ -149,62 +222,44 @@ def token_view(request):
     # Check scope
     # Check redirect_uri
     # Issue token ...
-    client = get_client_by_client_id(client_id)
-    if client is None:
-        logger.error("Invalid oidc client : %s", client_id)
-        return {'error': "invalid_client"}
-    elif not client.check_secret(client_secret):
-        logger.warn("Invalid oidc client_secret : %s", client_secret)
-        return {'error': "unauthorized_client"}
+    try:
+        client = validate_client(client_id, client_secret)
+    except InvalidClient as exc:
+        return http_json_error(request, exc)
 
     grant_type = request.POST.get('grant_type')
-    if grant_type != 'authorization_code':
-        logger.warn("Invalid grant type : %s", grant_type)
-        return {'error': "unsupported_grant_type"}
+    try:
+        validate_grant_type(grant_type)
+    except InvalidRequest as exc:
+        return http_json_error(request, exc)
 
     logger.debug("POST Params : %s" % request.POST)
 
-    code = request.POST.get('code')
-    if code is not None:
-        code = get_code_by_client_id(client.id, code)
+    auth_code = request.POST.get('code')
 
-    if code is None:
-        logger.warn("Wrong auth code provided")
-        return {'error': "invalid_grant"}
+    try:
+        code = validate_code(auth_code, client)
+    except InvalidCredentials as exc:
+        return http_json_error(request, exc)
 
     redirect_uri = request.POST.get('redirect_uri')
-    redirect_uri = unquote(redirect_uri)
 
-    if redirect_uri is None or code.uri != redirect_uri:
-        logger.error(
-            "Provided redirect uri {0} doesn't match the "
-            "expected one {1}".format(redirect_uri, code.uri)
-        )
-        return {
-            'error': "invalid_grant",
-            'error_description': "Invalid redirect_uri parameter"
-        }
+    try:
+        redirect_uri = validate_redirect_uri(redirect_uri, code)
+    except InvalidCredentials as exc:
+        return http_json_error(request, exc)
 
     # FIXME : enhance the scope stuff
     scope = request.POST.get('scope')
-    if scope is not None:
-        scopes = scope.split(' ')
-        print(scopes)
-        print(client.scopes)
-        if 'openid' not in scopes or not client.check_scope(scopes):
-            logger.error("Invalid list of requested scopes : %s", scopes)
-            return {
-                'error': 'invalid_request',
-                'error_description': "Invalid scope parameter"
-            }
-    else:
-        scopes = ['openid']
+    try:
+        scopes = validate_scopes(scope, client)
+    except InvalidRequest as exc:
+        return http_json_error(request, exc)
 
     claims = collect_claims(code.user_id, scopes)
 
     if code.nonce is not None:
         claims['nonce'] = code.nonce
-
 
     resp = handle_authcode_token(request, client, code, claims, client_secret)
     return resp
