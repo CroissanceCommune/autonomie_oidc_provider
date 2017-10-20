@@ -50,13 +50,14 @@ class Scope(object):
 class OpenIdScope(Scope):
     key = 'openid'
     attributes = (
-        ('user_id', 'id'),
+        ('sub', 'id'),
     )
 
 
 class ProfileScope(Scope):
     key = 'profile'
     attributes = (
+        ('user_id', 'id'),
         ('name', 'label'),
         ('firstname', 'firstname'),
         ('lastname', 'lastname'),
