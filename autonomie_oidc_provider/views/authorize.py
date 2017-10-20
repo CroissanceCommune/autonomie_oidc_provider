@@ -13,26 +13,32 @@ from six.moves.urllib.parse import (
 )
 from pyramid.httpexceptions import (
     HTTPFound,
-    HTTPBadRequest,
 )
 from pyramid.security import authenticated_userid
 
 from autonomie_base.models.base import DBSESSION
 from autonomie.models.user import User
-from autonomie_oidc_provider.exceptions import InvalidRequest
+from autonomie_oidc_provider.exceptions import (
+    InvalidRequest,
+    InvalidScope,
+    UnsupportedGrantType,
+)
 from autonomie_oidc_provider.models import (
     get_client_by_client_id,
     OidcCode,
     OidcRedirectUri,
 )
-from autonomie_oidc_provider.views import require_ssl
+from autonomie_oidc_provider.views import (
+    require_ssl,
+    http_error,
+)
 
 
 logger = logging.getLogger(__name__)
 
 
 def raise_authentication_error(
-    redirection_uri, error, description=None, state=None
+    redirection_uri, exception, state=None, nonce=None
 ):
     """
     Raise an authentication error in case of existing redirection uri
@@ -41,21 +47,21 @@ def raise_authentication_error(
     https://tools.ietf.org/html/rfc6749#section-4.1.2.1
 
     :param obj request: The request object
-    :param str error: The error code
-    :param str description: The optionnal description
+    :param obj exception: exception instance
     :param str state: The state passed by the client
+    :param str nonce: The nonce passed by the client
     """
     url = urlparse(redirection_uri)
-    query_params = {"error": error}
+    query_params = exception.datas.copy()
 
     if state is not None:
         query_params['state'] = state
 
-    if description is not None:
-        query_params['error_description'] = description
+    if nonce is not None:
+        query_params['nonce'] = nonce
 
     url = url._replace(query=urlencode(query_params))
-    raise HTTPFound(url=url)
+    raise HTTPFound(url.geturl())
 
 
 def get_redirection_uri(redirect_uri, client):
@@ -79,7 +85,9 @@ def get_redirection_uri(redirect_uri, client):
     return result
 
 
-def handle_authcode(request, client, redirection_uri, state=None, nonce=None):
+def handle_authcode(
+    request, client, redirection_uri, scopes, state=None, nonce=None
+):
     """
     Handle the authorization code first step redirection (redirect the browser
     with the authcode embeded in the url)
@@ -87,6 +95,7 @@ def handle_authcode(request, client, redirection_uri, state=None, nonce=None):
     :param obj request: The Pyramid request
     :param obj client: The OidcClient instance
     :param obj redirection_uri: The OidcRedirectUri instance
+    :param str scopes: The scopes associated to this code
     :param str state: The state initially transmitted by the Resource Consumer
     (RC)
     :param str nonce: The nonce initially transmitted by the Resource Consumer
@@ -101,7 +110,7 @@ def handle_authcode(request, client, redirection_uri, state=None, nonce=None):
 
     user_login = authenticated_userid(request)
     user_id = User.query().filter_by(login=user_login).first().id
-    auth_code = OidcCode(client, user_id, redirection_uri.uri)
+    auth_code = OidcCode(client, user_id, redirection_uri.uri, scopes)
     if nonce is not None:
         auth_code.nonce = nonce
     db.add(auth_code)
@@ -125,56 +134,124 @@ def handle_authcode(request, client, redirection_uri, state=None, nonce=None):
     return HTTPFound(location=parts.geturl())
 
 
+def validate_client(client_id):
+    """
+    Validate the provided client id and return it back
+
+    :param str client_id: The provided client_id
+    :returns: An OidcClient instance
+    """
+    client = get_client_by_client_id(client_id)
+    if client is None:
+        raise InvalidRequest(
+            error_description='Invalid client credentials'
+        )
+    return client
+
+
+def validate_redirect_uri(redirect_uri, client):
+    """
+    Validate the provided redirect_uri
+
+    :param str redirect_uri: The redirect_uri passed through the request
+    :param obj client: The associated client object
+    :returns: A OidcRedirectUri instance
+    """
+    redirection_uri = get_redirection_uri(redirect_uri, client)
+    if redirection_uri is None:
+        raise InvalidRequest(
+            error_description='Invalid client credentials'
+        )
+    return redirection_uri
+
+
+def validate_scopes(scope_str, client):
+    """
+    Validate given scopes are valid
+    http://openid.net/specs/openid-connect-core-1_0.html#AuthRequest
+
+    :param str scope_str: The space delimited list of requested scopes
+    :param obj client: An OidcClient
+    :returns: A space delimited list of scopes
+    :rtype: str
+    :raises: InvalidRequest if wrong scope
+    """
+    if scope_str is None or 'openid' not in scope_str:
+        raise InvalidScope(
+            error_description="Missing scope key"
+        )
+    scopes = scope_str.split(' ')
+    return ' '.join(
+        [scope for scope in scopes if scope in client.scopes.split(' ')]
+    )
+
+
+def validate_response_type(response_type):
+    if response_type != 'code':
+        raise UnsupportedGrantType(
+            error_description="Only authorization code process is supported"
+        )
+    return response_type
+
+
 @require_ssl
-def authentication_view(request):
+def authorize_view(request):
     """
     View handling authentication requests
 
     http://openid.net/specs/openid-connect-core-1_0.html#AuthRequest
     """
     client_id = request.params.get('client_id')
-    client = get_client_by_client_id(client_id)
+    try:
+        client = validate_client(client_id)
+    except InvalidRequest as exc:
+        return http_error(request, exc)
 
-    if client is None:
-        logger.error('Unknown client')
-        return HTTPBadRequest(
-            InvalidRequest(
-                error_description='Invalid client credentials'
-            )
-        )
     redirect_uri = request.params.get('redirect_uri')
-    redirection_uri = get_redirection_uri(redirect_uri, client)
-    if redirection_uri is None:
-        return HTTPBadRequest(
-            InvalidRequest(
-                error_description='Invalid redirect_uri parameter'
-            )
-        )
+    try:
+        redirection_uri = validate_redirect_uri(redirect_uri, client)
+    except InvalidRequest as exc:
+        return http_error(request, exc)
 
     resp = None
-    response_type = request.params.get('response_type')
     state = request.params.get('state')
     nonce = request.params.get('nonce')
 
-    if response_type == 'code':
-        resp = handle_authcode(request, client, redirection_uri, state, nonce)
-    else:
-        resp = raise_authentication_error(
+    scope = request.params.get('scope')
+    try:
+        scopes = validate_scopes(scope, client)
+    except InvalidScope as exc:
+        return raise_authentication_error(
             redirect_uri,
-            "unsupported_response_type",
-            description="Only authorization code process is supported for now",
+            exc,
             state=state,
+            nonce=nonce,
         )
+
+    response_type = request.params.get('response_type')
+    try:
+        response_type = validate_response_type(response_type)
+    except UnsupportedGrantType as exc:
+        return raise_authentication_error(
+            redirect_uri,
+            exc,
+            state=state,
+            nonce=nonce,
+        )
+
+    resp = handle_authcode(
+        request, client, redirection_uri, scopes, state, nonce
+    )
 
     return resp
 
 
 def includeme(config):
     """
-    Add the authorization view
+    Add the authorize view
     """
     config.add_view(
-        authentication_view,
+        authorize_view,
         route_name='/authorize',
         permission='oauth',
     )
