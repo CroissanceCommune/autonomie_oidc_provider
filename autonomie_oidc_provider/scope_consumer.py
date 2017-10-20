@@ -20,7 +20,7 @@ def format_res_for_encoding(res):
         for key, val in res.items():
             res[key] = format_res_for_encoding(val)
     elif isinstance(res, (tuple, list)):
-        res[key] = [format_res_for_encoding(i) for i in val]
+        res = [format_res_for_encoding(i) for i in res]
     elif type(res) in FORMATTERS:
         res = FORMATTERS[type(res)](res)
 
@@ -62,7 +62,7 @@ class ProfileScope(Scope):
         ('lastname', 'lastname'),
         ('email', 'email'),
         ('login', 'login'),
-        # ('groups', 'groups'),
+        ('groups', '_groups'),
     )
 
 

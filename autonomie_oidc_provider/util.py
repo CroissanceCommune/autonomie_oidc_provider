@@ -121,7 +121,7 @@ def get_access_token(request):
         )
 
     token_type = parts[0].lower()
-    if token_type != 'Bearer':
+    if token_type != 'bearer':
         logger.error("Unsupported token format")
         raise InvalidCredentials(
             error_description="Unsupported token format",

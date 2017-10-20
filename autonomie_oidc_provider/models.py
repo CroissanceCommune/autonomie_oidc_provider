@@ -103,6 +103,9 @@ class OidcClient(DBBASE):
         if cert_salt:
             self.cert_salt = cert_salt
 
+    def get_scopes(self):
+        return self.scopes.split(' ')
+
     def new_client_secret(self):
         """
         Create a new client secret and stores its encrypted value in db
@@ -178,7 +181,7 @@ class OidcClient(DBBASE):
         :rtype: bool
         """
         scopes = set(scopes)
-        allowed_scopes = set(self.scopes.split(' '))
+        allowed_scopes = set(self.get_scopes())
         return scopes.issubset(allowed_scopes)
 
 
@@ -241,7 +244,7 @@ class OidcCode(DBBASE):
                 minutes=self.expires_in
             )
             now = datetime.datetime.utcnow()
-            if expiry > now:
+            if now > expiry:
                 self.revoke()
                 DBSESSION().merge(self)
 
@@ -286,7 +289,7 @@ class OidcToken(DBBASE):
                 datetime.timedelta(minutes=self.expires_in)
 
             now = datetime.datetime.utcnow()
-            if expiry > now:
+            if now > expiry:
                 self.revoke()
                 DBSESSION().merge(self)
         return self.revoked

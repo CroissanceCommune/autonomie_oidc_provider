@@ -160,3 +160,12 @@ def user(sql_session):
     sql_session.add(user)
     sql_session.flush()
     return user
+
+
+@pytest.fixture
+def oidc_token(sql_session, oidc_client, user):
+    from autonomie_oidc_provider.models import OidcToken
+    token = OidcToken(oidc_client, user.id)
+    sql_session.add(token)
+    sql_session.flush()
+    return token

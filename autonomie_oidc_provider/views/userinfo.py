@@ -33,6 +33,7 @@ def validate_token(token_str):
     token = OidcToken.find(token_str)
     if token is None:
         raise InvalidToken(error_description=u"Unknown token")
+
     if token.is_revoked():
         raise InvalidToken(error_description=u"Expired token")
     return token
@@ -56,11 +57,12 @@ def userinfo_view(request):
     try:
         oidc_token = validate_token(token)
     except InvalidToken as exc:
+        logger.exception(u"Invalid token")
         return http_json_error(request, exc)
 
     # Here the user is authenticated
-    scopes = oidc_token.client.scopes
-    return collect_claims(token.user_id, scopes)
+    scopes = oidc_token.client.get_scopes()
+    return collect_claims(oidc_token.user_id, scopes)
 
 
 def includeme(config):
