@@ -5,19 +5,15 @@ from setuptools import setup, find_packages
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.txt')) as f:
     README = f.read()
+
 with open(os.path.join(here, 'CHANGES.txt')) as f:
     CHANGES = f.read()
 
-requires = [
-    'pyramid',
-    'pyramid-chameleon',
-    'pyramid_debugtoolbar',
-    'pyramid_tm',
-    'SQLAlchemy',
-    'transaction',
-    'zope.sqlalchemy',
-    'waitress',
-    ]
+with open(os.path.join(here, 'requirements.txt')) as f:
+    requires = f.read()
+
+with open(os.path.join(here, 'CURRENT_VERSION')) as f:
+    current_version = f.read().splitlines()[0].strip()
 
 tests_require = [
     'WebTest >= 1.3.1',  # py3 compat
@@ -40,7 +36,7 @@ entry_points = {
 }
 
 setup(name='autonomie_oidc_provider',
-      version='0.1b8',
+      version=current_version,
       description='autonomie_oidc_provider',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[
