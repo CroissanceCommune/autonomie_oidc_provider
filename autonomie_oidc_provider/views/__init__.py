@@ -21,8 +21,12 @@ def require_ssl(handler):
     client credentials and authorization tokens.
     """
     def wrapped(request):
-        if (request.scheme != 'https' and
-                oidc_settings('require_ssl', default=True)):
+        require_ssl = oidc_settings(
+            request.registry.settings,
+            key='require_ssl',
+            default=True
+        )
+        if request.scheme != 'https' and require_ssl:
             logger.info(
                 'rejected request due to unsupported scheme: %s'
                 % request.scheme

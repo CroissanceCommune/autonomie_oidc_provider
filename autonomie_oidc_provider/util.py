@@ -14,7 +14,6 @@ import base64
 import logging
 import calendar
 
-from pyramid.threadlocal import get_current_registry
 from autonomie_oidc_provider.exceptions import (
     InvalidCredentials,
     InvalidRequest,
@@ -23,15 +22,14 @@ from autonomie_oidc_provider.exceptions import (
 logger = logging.getLogger(__name__)
 
 
-def oidc_settings(key=None, default=None):
+def oidc_settings(settings, key=None, default=None):
     """
     Get configuration from the current registry
 
+    :param dict settings; The current settings
     :param str key: The key to look for
     :param str default: The default value
     """
-    settings = get_current_registry().settings
-
     if key:
         value = settings.get('oidc.%s' % key, default)
         if value == 'true':
@@ -117,7 +115,8 @@ def get_access_token(request):
     parts = auth.split()
     if len(parts) != 2:
         raise InvalidCredentials(
-            error_description="Invalid authorization header (not a bearer token)"
+            error_description="Invalid authorization header "
+            "(not a bearer token)"
         )
 
     token_type = parts[0].lower()

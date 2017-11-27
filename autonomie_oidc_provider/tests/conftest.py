@@ -7,7 +7,7 @@ import pytest
 
 DEFAULT_URI = 'sqlite://'
 DEFAULT_SETTINGS = {
-    'oidc.require_ssl': False,
+    'oidc.require_ssl': 'false',
     'oidc.issuer_url': 'http://myoidc/oidc/',
     'oidc.salt': 'salt',
     'session.longtimeout': 2,
