@@ -46,6 +46,13 @@ def test_get_client_credentials():
         get_client_credentials(req)
 
 
+def test_dt_to_timestamp():
+    from autonomie_oidc_provider.util import dt_to_timestamp
+    import datetime
+    assert dt_to_timestamp(datetime.datetime(1970, 1, 1)) == 0
+    assert dt_to_timestamp(datetime.datetime(2017, 11, 27)) == 1511740800
+
+
 def test_get_access_token():
     from autonomie_oidc_provider.util import get_access_token
 
