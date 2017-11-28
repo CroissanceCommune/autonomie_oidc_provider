@@ -59,6 +59,8 @@ def connection(settings, request):
         DBSESSION,
         DBBASE,
     )
+    from autonomie.models.user import User
+    print(User)
     from autonomie_oidc_provider import models
     print(models)
 
@@ -133,7 +135,7 @@ def oidc_client(sql_session):
         scopes='openid profile',
         cert_salt="123456",
     )
-    client.new_client_secret()
+    client.client_secret = "client_secret_passphrase"
     sql_session.add(client)
     sql_session.flush()
     return client
@@ -160,6 +162,21 @@ def user(sql_session):
     sql_session.add(user)
     sql_session.flush()
     return user
+
+
+@pytest.fixture
+def oidc_code(sql_session, oidc_client, user, oidc_redirect_uri):
+    from autonomie_oidc_provider.models import OidcCode
+    code = OidcCode(
+        client=oidc_client,
+        user_id=user.id,
+        uri=oidc_redirect_uri.uri,
+        scopes='openid',
+    )
+    code.nonce = "Nonce value"
+    sql_session.add(code)
+    sql_session.flush()
+    return code
 
 
 @pytest.fixture
