@@ -13,7 +13,9 @@ def index_view(request):
 
     :param obj request: The Pyramid request
     """
-    raise HTTPBadRequest("Missing mandatory parameters, see : http://openid.net/specs/openid-connect-core-1_0.html")
+    raise HTTPBadRequest(
+        "Missing mandatory parameters, "
+        "see : http://openid.net/specs/openid-connect-core-1_0.html")
 
 
 def includeme(config):
