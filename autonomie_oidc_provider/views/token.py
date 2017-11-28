@@ -37,6 +37,22 @@ from autonomie_oidc_provider.models import (
 logger = logging.getLogger(__name__)
 
 
+def get_claims(code, scopes):
+    """
+    Build the dict of claims to be returned to the client
+
+    :param obj code: The Oidc authentication code used for token generation
+    :param list scopes: List of scopes to be collected
+    :returns: A dict of claims
+    :rtype: dict
+    """
+    claims = collect_claims(code.user_id, scopes)
+    if code.nonce is not None:
+        claims['nonce'] = code.nonce
+
+    return claims
+
+
 def handle_authcode_token(request, client, code, claims, client_secret):
     """
     Handle the token response for authentication code request types
@@ -204,13 +220,23 @@ def token_view(request):
 
             The code issued by the auth endpoint on step 1
 
+    Calls to the token endpoint CAN contain :
+
+        state
+
+            A persisted state variable
+
+        scopes
+
+            Scopes that should be associated with the token
+
     The view returns a JWT containing
     """
     try:
         client_id, client_secret = get_client_credentials(request)
     except InvalidRequest as exc:
         logger.exception("Invalid client authentication")
-        return http__json_error(request, exc)
+        return http_json_error(request, exc)
     except InvalidCredentials as exc:
         logger.exception("Invalid client authentication")
         return http_json_error(request, exc)
@@ -256,11 +282,7 @@ def token_view(request):
     except InvalidRequest as exc:
         return http_json_error(request, exc)
 
-    claims = collect_claims(code.user_id, scopes)
-
-    if code.nonce is not None:
-        claims['nonce'] = code.nonce
-
+    claims = get_claims(code, scopes)
     resp = handle_authcode_token(request, client, code, claims, client_secret)
     return resp
 
