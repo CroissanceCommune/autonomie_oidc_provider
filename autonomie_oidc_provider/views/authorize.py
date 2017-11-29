@@ -14,10 +14,14 @@ from six.moves.urllib.parse import (
 from pyramid.httpexceptions import (
     HTTPFound,
 )
-from pyramid.security import authenticated_userid
+from pyramid.security import (
+    authenticated_userid,
+)
 
 from autonomie_base.models.base import DBSESSION
+
 from autonomie.models.user import User
+
 from autonomie_oidc_provider.exceptions import (
     InvalidRequest,
     InvalidScope,
@@ -201,16 +205,19 @@ def authorize_view(request):
 
     http://openid.net/specs/openid-connect-core-1_0.html#AuthRequest
     """
+    logger.debug(u"Authorize view")
     client_id = request.params.get('client_id')
     try:
         client = validate_client(client_id)
     except InvalidRequest as exc:
+        logger.exception("  - Invalid client_id")
         return http_error(request, exc)
 
     redirect_uri = request.params.get('redirect_uri')
     try:
         redirection_uri = validate_redirect_uri(redirect_uri, client)
     except InvalidRequest as exc:
+        logger.exception("  - Invalid redirect_uri")
         return http_error(request, exc)
 
     resp = None
@@ -221,6 +228,7 @@ def authorize_view(request):
     try:
         scopes = validate_scopes(scope, client)
     except InvalidScope as exc:
+        logger.exception("  - Invalid scope")
         return raise_authentication_error(
             redirect_uri,
             exc,
@@ -232,6 +240,7 @@ def authorize_view(request):
     try:
         response_type = validate_response_type(response_type)
     except UnsupportedGrantType as exc:
+        logger.exception("  - Invalid grant type")
         return raise_authentication_error(
             redirect_uri,
             exc,
