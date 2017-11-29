@@ -79,3 +79,23 @@ def test_get_access_token():
     req = DummyRequest(headers={"Authorization": "customformat mytoken"})
     with pytest.raises(InvalidCredentials):
         get_access_token(req)
+
+
+def test_add_get_params():
+    from autonomie_oidc_provider.util import add_get_params
+
+    from six.moves.urllib.parse import (urlparse, parse_qsl)
+
+    result = add_get_params(
+        "http://example.com/logout?come_from=oidc",
+        {'state': 'persiststate'},
+    )
+
+    params = dict(parse_qsl(urlparse(result).query))
+    keys = params.keys()
+    keys.sort()
+    values = params.values()
+    values.sort()
+
+    assert keys == ['come_from', 'state']
+    assert values == ['oidc', 'persiststate']

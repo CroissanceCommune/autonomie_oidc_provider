@@ -14,6 +14,13 @@ import base64
 import logging
 import calendar
 
+from six.moves.urllib.parse import (
+    urlparse,
+    ParseResult,
+    urlencode,
+    parse_qsl,
+)
+
 from autonomie_oidc_provider.exceptions import (
     InvalidCredentials,
     InvalidRequest,
@@ -128,3 +135,26 @@ def get_access_token(request):
     else:
         token = parts[1].strip()
     return token
+
+
+def add_get_params(url, params):
+    """
+    Add get params to an existing url (that may contain params)
+
+    :param str url: The original url
+    :param dict params: The dictionnary of {key:param} to add to the url
+    :returns: An update url
+    :rtype: str
+    """
+    url_obj = urlparse(url)
+    query_params = dict(parse_qsl(url_obj.query))
+    query_params.update(params)
+    url = ParseResult(
+        url_obj.scheme,
+        url_obj.netloc,
+        url_obj.path,
+        url_obj.params,
+        urlencode(query_params),
+        ''
+    )
+    return url.geturl()
