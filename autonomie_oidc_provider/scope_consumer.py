@@ -38,6 +38,8 @@ class Scope(object):
                 data_value = getattr(user_object, data_key, '')
                 if hasattr(data_value, '__json__'):
                     data_value = data_value.__json__(None)
+                elif isinstance(data_value, list):
+                    data_value = [data.__json__(None) for data in data_value]
 
                 res[label] = data_value
             else:
