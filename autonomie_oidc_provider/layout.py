@@ -1,16 +1,5 @@
 # -*- coding: utf-8 -*-
-from js.deform import deform_css
-from js.bootstrap import bootstrap
-from autonomie_oidc_provider import fanstatic
-
-
-class FormLayout(object):
-    def __init__(self, context, request):
-        self.context = context
-        self.request = request
-        deform_css.need()
-        bootstrap.need()
-        fanstatic.main_css.need()
+from autonomie.layouts import DefaultLayout
 
 
 def includeme(config):
@@ -20,7 +9,11 @@ def includeme(config):
     :param obj config: A Configurator object
     """
     config.add_layout(
-        FormLayout,
-        "autonomie_oidc_provider:templates/form_layout.pt",
-        name='formlayout'
+        DefaultLayout,
+        "autonomie:templates/layouts/login.mako"
+    )
+    config.add_layout(
+        DefaultLayout,
+        "autonomie:templates/layouts/login.mako",
+        name='login'
     )
