@@ -24,7 +24,7 @@ def base_configure(global_config, **settings):
     config.set_default_permission('admin')
     config.add_static_view(
         'static',
-        'autonomie_oidc_provider:static/'
+        'autonomie:static/'
     )
     config.include('.models')
     config.include('.routes')
@@ -34,6 +34,7 @@ def base_configure(global_config, **settings):
     config.include('.views.authorize')
     config.include('.views.token')
     config.include('.views.userinfo')
+    config.include('.views.logout')
 
     config.include('.views.index')
     return config
