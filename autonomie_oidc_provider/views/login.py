@@ -95,6 +95,8 @@ def get_oidc_datas(request_parameters):
     :returns: The param dict
     :rtype: dict
     """
+    logger.debug(request_parameters)
+    logger.debug("client_id" in request_parameters)
     result = {}
     for key in REQUIRED_FIELDS:
         if key == 'scope' and "openid" not in request_parameters[key]:
@@ -149,7 +151,7 @@ def login_view(request):
 
     return dict(
         title='Autonomie',
-        form=html_form,
+        html_form=html_form,
     )
 
 
@@ -174,8 +176,8 @@ def includeme(config):
         route_name='/login',
         permission=NO_PERMISSION_REQUIRED,
         require_csrf=True,
-        layout='formlayout',
-        renderer='autonomie_oidc_provider:templates/login.pt',
+        layout='login',
+        renderer='autonomie:templates/login.mako',
     )
     config.add_view(
         forbidden_view,
