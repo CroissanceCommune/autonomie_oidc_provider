@@ -27,9 +27,6 @@ dev_require = [
 
 entry_points = {
     "paste.app_factory": "main = autonomie_oidc_provider:main",
-    "fanstatic.libraries": [
-        "autonomie_oidc_provider=autonomie_oidc_provider.fanstatic:lib"
-    ],
     "console_scripts": [
         "oidc-manage=autonomie_oidc_provider.scripts.manager:manage"
     ]
