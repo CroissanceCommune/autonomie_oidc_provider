@@ -4,6 +4,7 @@
 #       * Arezki Feth <f.a@majerti.fr>;
 #       * Miotte Julien <j.m@majerti.fr>;
 import datetime
+import deform
 
 from jwkest.jws import (
     JWS,
@@ -75,26 +76,118 @@ def get_code_by_client_id(client_id, code):
 
 class OidcClient(DBBASE):
     __table_args__ = default_table_args,
-    id = Column(Integer, primary_key=True)
-    name = Column(Unicode(128), unique=True, nullable=False)
-    client_id = Column(Unicode(64), unique=True, nullable=False)
+    id = Column(
+        Integer,
+        primary_key=True,
+        info={'colanderalchemy': {'widget': deform.widget.HiddenWidget()}},
+    )
+    name = Column(
+        Unicode(128),
+        unique=True,
+        nullable=False,
+        info={
+            'colanderalchemy': {
+                'title': u"Nom de l'application"
+            }
+        }
+    )
+    client_id = Column(
+        Unicode(64),
+        unique=True,
+        nullable=False,
+        info={'colanderalchemy': {'exclude': True}}
+    )
     _client_secret = Column(
         Unicode(255),
-        unique=True, nullable=False)
-    revoked = Column(Boolean, default=False)
-    revocation_date = Column(DateTime)
-    scopes = Column(Unicode(256), nullable=False)
+        unique=True,
+        nullable=False,
+        info={'colanderalchemy': {'exclude': True}}
+    )
+    revoked = Column(
+        Boolean,
+        default=False,
+        info={'colanderalchemy': {'exclude': True}}
+    )
+    revocation_date = Column(
+        DateTime,
+        info={'colanderalchemy': {'exclude': True}}
+    )
+    scopes = Column(
+        Unicode(256),
+        nullable=False,
+        info={
+            'colanderalchemy': {
+                'title': u"Données mise à disposition de l'application",
+                'description': u"Au-delà de l'authentification, l'application "
+                u"peut demander à accéder à d'autres informations, cela doit "
+                u"être autorisée ici",
+            }
+        }
+    )
 
-    salt = Column(Unicode(256), nullable=False)
-    cert_salt = Column(Unicode(256), default='')
+    salt = Column(
+        Unicode(256),
+        nullable=False,
+        info={'colanderalchemy': {'exclude': True}}
+    )
+    cert_salt = Column(
+        Unicode(256),
+        default='',
+        info={'colanderalchemy': {'exclude': True}}
+    )
+    admin_email = Column(
+        Unicode(256),
+        default='',
+        info={
+            'colanderalchemy': {
+                'title': u"Adresse email de l'administrateur",
+                'description': u"Les informations de connexion de l'application"
+                u" seront transmises directement à cette adresse",
+            }
+        }
+    )
+    logout_uri = Column(
+        Unicode(256),
+        default='',
+        info={
+            'colanderalchemy': {
+                'title': u"Url de déconnexion",
+                'description': u"Lorsqu'un utilisateur se déconnecte auprès du"
+                u" service d'authentification centralisée, cette adresse sera "
+                u"appelée pour assurer que les utilisateurs soient déconnectés "
+                u"de l'application seront transmises directement à cette "
+                u"adresse",
+            }
+        }
+    )
+
     redirect_uris = relationship(
         "OidcRedirectUri",
         back_populates='client',
+        info={
+            'colanderalchemy': {
+                'title': u"Urls de redirection",
+                "description": u"Urls de redirection OpenId Connect utilisée "
+                u"pour renvoyer l'utilisateur vers l'application après "
+                u"authentification",
+                "widget": deform.widget.SequenceWidget(
+                    add_subitem_text_template=u"Ajouter une url de redirection"
+                ),
+            }
+        }
     )
-    tokens = relationship("OidcToken", back_populates="client")
-    authcodes = relationship("OidcCode", back_populates="client")
+    tokens = relationship(
+        "OidcToken",
+        back_populates="client",
+        info={'colanderalchemy': {'exclude': True}}
+    )
+    authcodes = relationship(
+        "OidcCode",
+        back_populates="client",
+        info={'colanderalchemy': {'exclude': True}}
+    )
 
-    def __init__(self, name, scopes, cert_salt=None):
+    def __init__(self, name, scopes, admin_email, cert_salt=None):
         self.name = name
         self.salt = gen_salt()
         self.client_id = gen_client_id()
@@ -187,11 +280,26 @@ class OidcClient(DBBASE):
 
 class OidcRedirectUri(DBBASE):
     __table_args__ = default_table_args
-    id = Column(Integer, primary_key=True)
-    uri = Column(Unicode(256), nullable=False)
+    id = Column(
+        Integer,
+        primary_key=True,
+        info={'colanderalchemy': {'widget': deform.widget.HiddenWidget()}},
+    )
+    uri = Column(
+        Unicode(256),
+        nullable=False,
+        info={'colanderalchemy': {"title": u"Url"}}
+    )
 
-    client_id = Column(Integer, ForeignKey(OidcClient.id))
-    client = relationship(OidcClient)
+    client_id = Column(
+        Integer,
+        ForeignKey(OidcClient.id),
+        info={'colanderalchemy': {"exclude": True}},
+    )
+    client = relationship(
+        OidcClient,
+        info={'colanderalchemy': {"exclude": True}},
+    )
 
     def __init__(self, client, uri):
         if OidcRedirectUri.query().filter_by(uri=uri).count() > 0:
