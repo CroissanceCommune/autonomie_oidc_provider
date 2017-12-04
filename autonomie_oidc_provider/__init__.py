@@ -47,3 +47,10 @@ def main(global_config, **settings):
     engine = engine_from_config(settings, "sqlalchemy.")
     initialize_sql(engine)
     return config.make_wsgi_app()
+
+
+def includeme(config):
+    """
+    Autonomie inclusion hook point
+    """
+    from autonomie_oidc_provider.models import *
