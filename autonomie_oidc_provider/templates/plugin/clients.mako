@@ -27,7 +27,7 @@
 <%block name='afteractionmenu'>
 <div class='page-header-block'>
 <a class='btn btn-primary primary-action'
-    href="${request.route_path('/oidc_config/clients', _query={'action': 'add'})}"
+    href="${request.route_path('/admin/oidc/clients', _query={'action': 'add'})}"
     >
     Ajouter une application
 </a>
@@ -67,8 +67,9 @@
 </div>
 <div class='panel panel-default page-block'>
     <div class='panel-heading'>
-        ${records.item_count} Résultat(s)
-    </div>
+        ${records.item_count} Résultat(s) -&nbsp;
+Liste des applications ayant le droit d'authentifier leurs utilisateurs auprès d'Autonomie
+        </div>
     <div class='panel-body'>
         <table class="table table-striped table-condensed table-hover">
             <thead>
