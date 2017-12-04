@@ -2,6 +2,7 @@
 
 from autonomie_oidc_provider.config import SCOPES
 
+
 def format_scope(scope):
     """
     Format a scope and returns its associated label
