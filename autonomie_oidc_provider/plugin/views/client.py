@@ -223,7 +223,7 @@ class ClientAddView(BaseFormView):
         self.request.actionmenu.add(
             ViewLink(
                 u"Revenir à la liste",
-                path="/oidc_config/clients",
+                path="/admin/oidc/clients",
             )
         )
         form.widget = GridFormWidget(named_grid=FORM_LAYOUT)
@@ -243,14 +243,14 @@ class ClientAddView(BaseFormView):
         self.dbsession.flush()
         return HTTPFound(
             self.request.route_path(
-                "/oidc_config/clients",
+                "/admin/oidc/clients",
             )
         )
 
     def cancel_success(self, *args, **kwargs):
         return HTTPFound(
             self.request.route_path(
-                "/oidc_config/clients",
+                "/admin/oidc/clients",
             )
         )
 
@@ -264,7 +264,7 @@ def client_view(context, request):
     request.actionmenu.add(
         ViewLink(
             u"Revenir à la liste",
-            path="/oidc_config/clients",
+            path="/admin/oidc/clients",
         )
     )
     return dict(
@@ -274,14 +274,14 @@ def client_view(context, request):
 
 class ClientEditView(BaseEditView):
     schema = get_client_schema()
-    redirect_route = "/oidc_config/clients"
+    redirect_route = "/admin/oidc/clients"
 
     def before(self, form):
         BaseEditView.before(self, form)
         self.request.actionmenu.add(
             ViewLink(
                 u"Revenir à la liste",
-                path="/oidc_config/clients",
+                path="/admin/oidc/clients",
             )
         )
 
@@ -299,7 +299,7 @@ def client_revoke_view(context, request):
             context.name
         )
     )
-    return HTTPFound(request.route_path("/oidc_config/clients"))
+    return HTTPFound(request.route_path("/admin/oidc/clients"))
 
 
 def client_secret_refresh_view(context, request):
@@ -322,12 +322,24 @@ class ClientListView(BaseListView):
     Client listing view
     """
     add_template_vars = ('title', 'stream_actions',)
-    title = u"Liste des clients ayant le droit d'accéder aux informations "
-    u"Autonomie"
+    title = u"Configuration du module d'authentification centralisée (SSO)"
     schema = get_client_list_schema()
     default_sort = "name"
     default_direction = "asc"
     sort_columns = {'name': OidcClient.name}
+
+    def populate_actionmenu(self, appstruct):
+        """
+        Add a link to the admin index page
+
+        :param dict appstruct: The current search filter
+        """
+        self.request.actionmenu.add(
+            ViewLink(
+                u"Revenir à l'étape précédente",
+                path="admin_index",
+            )
+        )
 
     def query(self):
         return OidcClient.query().options(
@@ -354,7 +366,7 @@ class ClientListView(BaseListView):
         """
         yield (
             self.request.route_path(
-                "/oidc_config/clients/{id}",
+                "/admin/oidc/clients/{id}",
                 id=oidc_client.id,
             ),
             u"Voir",
@@ -364,7 +376,7 @@ class ClientListView(BaseListView):
         )
         yield (
             self.request.route_path(
-                "/oidc_config/clients/{id}",
+                "/admin/oidc/clients/{id}",
                 id=oidc_client.id,
                 _query={'action': 'edit'}
             ),
@@ -376,7 +388,7 @@ class ClientListView(BaseListView):
         if not oidc_client.revoked:
             yield (
                 self.request.route_path(
-                    "/oidc_config/clients/{id}",
+                    "/admin/oidc/clients/{id}",
                     id=oidc_client.id,
                     _query={'action': 'revoke'}
                 ),
@@ -390,12 +402,12 @@ class ClientListView(BaseListView):
 
 def add_routes(config):
     config.add_route(
-        "/oidc_config/clients",
-        "/oidc_config/clients"
+        "/admin/oidc/clients",
+        "/admin/oidc/clients"
     )
     config.add_route(
-        "/oidc_config/clients/{id}",
-        "/oidc_config/clients/{id}",
+        "/admin/oidc/clients/{id}",
+        "/admin/oidc/clients/{id}",
         traverse="/oidc/clients/{id}",
     )
 
@@ -403,44 +415,59 @@ def add_routes(config):
 def add_views(config):
     config.add_view(
         ClientAddView,
-        route_name="/oidc_config/clients",
+        route_name="/admin/oidc/clients",
         request_param="action=add",
         permission="admin.oidc",
         renderer="autonomie:templates/base/formpage.mako",
     )
     config.add_view(
         ClientEditView,
-        route_name="/oidc_config/clients/{id}",
+        route_name="/admin/oidc/clients/{id}",
         request_param="action=edit",
         permission="admin.oidc",
         renderer="autonomie:templates/base/formpage.mako",
     )
     config.add_view(
         client_view,
-        route_name="/oidc_config/clients/{id}",
+        route_name="/admin/oidc/clients/{id}",
         permission="admin.oidc",
         renderer="autonomie_oidc_provider:templates/plugin/client.mako",
     )
     config.add_view(
         client_revoke_view,
-        route_name="/oidc_config/clients/{id}",
+        route_name="/admin/oidc/clients/{id}",
         request_param="action=revoke",
         permission="admin.oidc",
     )
     config.add_view(
         client_secret_refresh_view,
-        route_name="/oidc_config/clients/{id}",
+        route_name="/admin/oidc/clients/{id}",
         request_param="action=refresh_secret",
         permission="admin.oidc",
     )
     config.add_view(
         ClientListView,
-        route_name="/oidc_config/clients",
+        route_name="/admin/oidc/clients",
         permission="admin.oidc",
         renderer="autonomie_oidc_provider:templates/plugin/clients.mako",
+    )
+
+
+def add_menu_entry(config):
+    from autonomie.views.admin.main import ADMIN_INDEX_MENUS
+    ADMIN_INDEX_MENUS.append(
+        dict(
+            label=u"Configuration du module d'authentification centralisée "
+            u"(SSO)",
+            route_name="/admin/oidc/clients",
+            title=u"Configurer les droits d'accès des applications "
+            u"utilisant les données Autonomie et son service "
+            u"d'authentification Open Id connect"
+        )
     )
 
 
 def includeme(config):
     add_routes(config)
     add_views(config)
+    add_menu_entry(config)
