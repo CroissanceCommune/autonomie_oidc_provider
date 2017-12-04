@@ -74,3 +74,37 @@ In the response you get :
     - An access token with mandatory informations
     - An id_token JWS encrypted as described in the spec
     - Since we use code flow, the id_token also returns the at_hash access_token identification key
+
+
+Autonomie integration
+-----------------------
+
+In your Autonomie's ini file add the following :
+
+.. codeblock:: python
+
+    pyramid.includes =
+                        ...
+                        autonomie_oidc_provider
+                        ...
+
+
+(That's for model registration so that the db startup initialize the tables)
+
+And add the following :
+
+.. codeblock::
+
+    autonomie.includes =
+                        ...
+                        autonomie_oidc_provider.plugin
+                        ...
+
+That register OIDC client application configuration UI :
+
+* routes
+* views
+* traversal tree branch
+* template api stuff
+* templates
+* menu entries
