@@ -113,7 +113,7 @@ class OidcClient(DBBASE):
         info={'colanderalchemy': {'exclude': True}}
     )
     scopes = Column(
-        Unicode(256),
+        Unicode(255),
         nullable=False,
         info={
             'colanderalchemy': {
@@ -126,17 +126,17 @@ class OidcClient(DBBASE):
     )
 
     salt = Column(
-        Unicode(256),
+        Unicode(255),
         nullable=False,
         info={'colanderalchemy': {'exclude': True}}
     )
     cert_salt = Column(
-        Unicode(256),
+        Unicode(255),
         default='',
         info={'colanderalchemy': {'exclude': True}}
     )
     admin_email = Column(
-        Unicode(256),
+        Unicode(255),
         default='',
         info={
             'colanderalchemy': {
@@ -147,7 +147,7 @@ class OidcClient(DBBASE):
         }
     )
     logout_uri = Column(
-        Unicode(256),
+        Unicode(255),
         default='',
         info={
             'colanderalchemy': {
@@ -163,6 +163,7 @@ class OidcClient(DBBASE):
 
     redirect_uris = relationship(
         "OidcRedirectUri",
+        cascade="all, delete-orphan",
         back_populates='client',
         info={
             'colanderalchemy': {
@@ -187,8 +188,15 @@ class OidcClient(DBBASE):
         info={'colanderalchemy': {'exclude': True}}
     )
 
-    def __init__(self, name, scopes, admin_email, cert_salt=None):
+    def __init__(self,
+                 name=None,
+                 scopes=None,
+                 admin_email=None,
+                 logout_uri=None,
+                 cert_salt=None):
         self.name = name
+        self.admin_email = admin_email
+        self.logout_uri = logout_uri
         self.salt = gen_salt()
         self.client_id = gen_client_id()
         self.client_secret = gen_client_secret()
@@ -286,24 +294,23 @@ class OidcRedirectUri(DBBASE):
         info={'colanderalchemy': {'widget': deform.widget.HiddenWidget()}},
     )
     uri = Column(
-        Unicode(256),
+        Unicode(255),
         nullable=False,
+        unique=True,
         info={'colanderalchemy': {"title": u"Url"}}
     )
 
     client_id = Column(
         Integer,
-        ForeignKey(OidcClient.id),
-        info={'colanderalchemy': {"exclude": True}},
+        ForeignKey(OidcClient.id, ondelete='cascade'),
+        info={'colanderalchemy': {'widget': deform.widget.HiddenWidget()}},
     )
     client = relationship(
         OidcClient,
         info={'colanderalchemy': {"exclude": True}},
     )
 
-    def __init__(self, client, uri):
-        if OidcRedirectUri.query().filter_by(uri=uri).count() > 0:
-            raise Exception("Existing redirectUri")
+    def __init__(self, client=None, uri=None):
         self.client = client
         self.uri = uri
 
@@ -313,10 +320,10 @@ class OidcCode(DBBASE):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, nullable=False)
     authcode = Column(Unicode(64), unique=True, nullable=False)
-    uri = Column(Unicode(256), nullable=False)
+    uri = Column(Unicode(255), nullable=False)
     expires_in = Column(Integer, nullable=False, default=10*60)
-    nonce = Column(Unicode(256))
-    scopes = Column(Unicode(256))
+    nonce = Column(Unicode(255))
+    scopes = Column(Unicode(255))
 
     revoked = Column(Boolean, default=False)
     revocation_date = Column(DateTime)
@@ -439,8 +446,8 @@ class OidcToken(DBBASE):
 class OidcIdToken(DBBASE):
     __table_args__ = default_table_args
     id = Column(Integer, primary_key=True)
-    issuer = Column(Unicode(256), nullable=False)
-    sub = Column(Unicode(256), nullable=False)
+    issuer = Column(Unicode(255), nullable=False)
+    sub = Column(Unicode(255), nullable=False)
     expiration_time = Column(DateTime)
     issue_time = Column(DateTime)
 
