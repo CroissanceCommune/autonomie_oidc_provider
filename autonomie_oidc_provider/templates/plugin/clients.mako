@@ -86,9 +86,9 @@
                     <tr class='tableelement'>
                         <td>
                             % if client.revoked:
-                            <span class='label label-warning'>
+                            <span class='label label-danger'>
                             Cette application a été révoquée
-                            </span>
+                            </span>&nbsp;
                             % endif
                             ${client.name}
                         </td>

@@ -37,14 +37,16 @@
         <a
             href="${request.current_route_path(_query={'action': 'revoke'})}"
             class='btn btn-default secondary-action'
-            onclick="return confirm('Cette application ne pourra plus accéder à Autonomie. Continuer ?')"
+            onclick="return confirm('Cette application ne pourra plus accéder \
+à Autonomie. Continuer ?')"
             >
             <i class='fa fa-archive'></i>&nbsp;Révoquer les droits de cette application
         </a>
         <a
             href="${request.current_route_path(_query={'action': 'refresh_secret'})}"
             class='btn btn-default secondary-action'
-            onclick="return confirm('Cette application ne pourra plus accéder à Autonomie avec son ancien code d'identification. Continuer ?')"
+            onclick="return confirm('Cette application ne pourra plus accéder \
+à Autonomie avec ses anciens identifiants. Continuer ?')"
             >
             <i class='fa fa-refresh'></i>&nbsp;Générer un nouveau code de connexion
         </a>
@@ -55,23 +57,21 @@
         ont été révoqués le ${api.format_date(_context.revocation_date)}
         </div>
         % endif
-        <ul>
-        <li>Client ID : ${_context.client_id}</li>
-        <li>Urls de redirection déclarées
+        <p>Client ID : ${_context.client_id}</p>
+        <p>Urls de redirection déclarées
             <ul>
                 % for redirect_uri in _context.redirect_uris:
                 <li>${redirect_uri.uri}</li>
                 % endfor
             </ul>
-        </li>
-        <li>Autorisation dont bénéficie l'application
+        </p>
+        <p>Autorisations dont bénéficie l'application
             <ul>
                 % for scope in _context.get_scopes():
-                    <li>${scope}</li>
+                    <li>${api.format_scope(scope)}</li>
                 % endfor
             </ul>
-        </li>
-        </ul>
+        </p>
     </div>
 </div>
 </%block>
