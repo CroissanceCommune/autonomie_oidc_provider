@@ -69,6 +69,7 @@ def get_client_credentials(request):
         return request.POST['client_id'], request.POST['client_secret']
     else:
         logger.error('No authorization header found')
+        logger.error(request.headers.items())
         raise InvalidRequest(error_description="No authorization header found")
 
     parts = auth.split()
@@ -117,6 +118,7 @@ def get_access_token(request):
         auth = request.headers.get('authorization')
     else:
         logger.error('No authorization header found')
+        logger.error(request.headers.items())
         raise InvalidRequest(error_description="No authorization header found")
 
     parts = auth.split()
