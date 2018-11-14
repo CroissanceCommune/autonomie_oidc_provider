@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from autonomie.layouts import DefaultLayout
+from autonomie.default_layouts import DefaultLayout
 
 
 def includeme(config):
