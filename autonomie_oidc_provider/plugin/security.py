@@ -7,6 +7,7 @@
 Insert custom traversal security stuff inside the main application traversal
 tree
 """
+import logging
 from pyramid.interfaces import IRootFactory
 from autonomie.utils.security import (
     TraversalDbAccess,
@@ -14,6 +15,7 @@ from autonomie.utils.security import (
     get_base_acl,
 )
 from autonomie_oidc_provider import models
+logger = logging.getLogger(__name__)
 
 
 class OidcNode(TraversalNode):
@@ -26,6 +28,7 @@ class OidcNode(TraversalNode):
             'clients',
             'client',
             models.OidcClient,
+            logger,
         )
 
 
@@ -33,4 +36,4 @@ def includeme(config):
     root = config.registry.getUtility(IRootFactory)
     root.register_subtree('oidc', OidcNode())
 
-    models.OidcClient.__acl__ = property(get_base_acl)
+    models.OidcClient.__acl__ = get_base_acl
