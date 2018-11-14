@@ -20,7 +20,7 @@ from pyramid.security import (
 
 from autonomie_base.models.base import DBSESSION
 
-from autonomie.models.user import User
+from autonomie.models.user.login import Login
 
 from autonomie_oidc_provider.exceptions import (
     InvalidRequest,
@@ -113,7 +113,7 @@ def handle_authcode(
     qparams = dict(parse_qsl(parts.query))
 
     user_login = authenticated_userid(request)
-    user_id = User.query().filter_by(login=user_login).first().id
+    user_id = Login.query().filter_by(login=user_login).first().user_id
     auth_code = OidcCode(client, user_id, redirection_uri.uri, scopes)
     if nonce is not None:
         auth_code.nonce = nonce

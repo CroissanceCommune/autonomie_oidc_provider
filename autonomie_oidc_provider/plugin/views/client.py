@@ -8,6 +8,7 @@ OidcClient configuration views
 
 Those views are only presneted inside Autonomie
 """
+import os
 import logging
 import colander
 
@@ -17,23 +18,32 @@ from sqlalchemy import or_
 from sqlalchemy.orm import load_only
 
 from autonomie_base.mail import send_mail
-from autonomie.utils.widgets import ViewLink
+from autonomie.views.admin.tools import (
+    AdminTreeMixin,
+    AdminCrudListView,
+    BaseAdminEditView,
+    BaseAdminAddView
+)
 from autonomie.views import (
-    BaseFormView,
-    BaseEditView,
-    BaseListView,
+    BaseView,
     cancel_btn,
     submit_btn,
 )
+from autonomie.views.admin import AdminIndexView
 from autonomie_oidc_provider.models import (
     OidcClient,
 )
 from autonomie_oidc_provider.plugin.views.forms import (
     get_client_schema,
-    get_client_list_schema,
 )
+from autonomie.utils.widgets import Link
 
 logger = logging.getLogger('autonomie.oidc.plugin.views')
+
+
+OIDC_INDEX_URL = "/admin/oidc"
+OIDC_CLIENT_URL = os.path.join(OIDC_INDEX_URL, "clients")
+OIDC_CLIENT_ITEM_URL = os.path.join(OIDC_CLIENT_URL, "{id}")
 
 
 FORM_LAYOUT = (
@@ -211,79 +221,61 @@ def refresh_client_secret(request, client, newone=True):
         flash_client_secret_to_ui(request, secret, client, newone)
 
 
-class ClientAddView(BaseFormView):
+class ClientAddView(BaseAdminAddView):
     """
     View used to add an open id connect client
     """
-    schema = get_client_schema()
+    route_name = OIDC_CLIENT_URL
     title = u"Ajouter une application cliente Open ID Connect"
+    schema = get_client_schema()
     buttons = (submit_btn, cancel_btn)
+    factory = OidcClient
 
     def before(self, form):
-        self.request.actionmenu.add(
-            ViewLink(
-                u"Revenir à la liste",
-                path="/admin/oidc/clients",
-            )
-        )
         form.widget = GridFormWidget(named_grid=FORM_LAYOUT)
         form.set_appstruct(
             {'scopes': ('openid', 'profile')}
         )
 
-    def submit_success(self, appstruct):
+    def on_add(self, client, appstruct):
         """
         launched on successfull submission
 
         :param dict appstruct: The validated form datas
         """
-        client = self.schema.objectify(appstruct)
         refresh_client_secret(self.request, client)
-        self.dbsession.add(client)
-        self.dbsession.flush()
-        return HTTPFound(
-            self.request.route_path(
-                "/admin/oidc/clients",
-            )
-        )
+        self.dbsession.merge(client)
+        return client
 
     def cancel_success(self, *args, **kwargs):
-        return HTTPFound(
-            self.request.route_path(
-                "/admin/oidc/clients",
-            )
-        )
+        return self.redirect()
 
     cancel_failure = cancel_success
 
 
-def client_view(context, request):
+class ClientView(BaseView, AdminTreeMixin):
     """
     Collect datas for the client display view
     """
-    request.actionmenu.add(
-        ViewLink(
-            u"Revenir à la liste",
-            path="/admin/oidc/clients",
+    route_name = OIDC_CLIENT_ITEM_URL
+
+    @property
+    def title(self):
+        return u"Application : {0}".format(self.context.name)
+
+    def __call__(self):
+        return dict(
+            breadcrumb=self.breadcrumb,
+            back_link=self.back_link,
+            title=self.title
         )
-    )
-    return dict(
-        title=u"Application : {0}".format(context.name)
-    )
 
 
-class ClientEditView(BaseEditView):
+class ClientEditView(BaseAdminEditView):
+    route_name = OIDC_CLIENT_ITEM_URL
+    title = u"Modifier ce du client"
     schema = get_client_schema()
-    redirect_route = "/admin/oidc/clients"
-
-    def before(self, form):
-        BaseEditView.before(self, form)
-        self.request.actionmenu.add(
-            ViewLink(
-                u"Revenir à la liste",
-                path="/admin/oidc/clients",
-            )
-        )
+    factory = OidcClient
 
 
 def client_revoke_view(context, request):
@@ -299,7 +291,7 @@ def client_revoke_view(context, request):
             context.name
         )
     )
-    return HTTPFound(request.route_path("/admin/oidc/clients"))
+    return HTTPFound(request.route_path(OIDC_CLIENT_URL))
 
 
 def client_secret_refresh_view(context, request):
@@ -317,31 +309,47 @@ def client_secret_refresh_view(context, request):
     return HTTPFound(request.current_route_path(_query={}))
 
 
-class ClientListView(BaseListView):
+class ClientListView(AdminCrudListView):
     """
     Client listing view
     """
-    add_template_vars = ('title', 'stream_actions',)
-    title = u"Configuration du module d'authentification centralisée (SSO)"
-    schema = get_client_list_schema()
-    default_sort = "name"
-    default_direction = "asc"
-    sort_columns = {'name': OidcClient.name}
+    route_name = OIDC_CLIENT_URL
+    item_route_name = OIDC_CLIENT_ITEM_URL
 
-    def populate_actionmenu(self, appstruct):
-        """
-        Add a link to the admin index page
+    title = u"Module d'authentification centralisée (SSO)"
+    description = (
+        u"Configurer les droits d'accès des applications "
+        u"utilisant les données Autonomie et son service "
+        u"d'authentification Open Id connect"
+    )
+    columns = [
+        'Application', 'Client ID', u"Autorisation (scope)",
+        u"Urls de redirection"
+    ]
 
-        :param dict appstruct: The current search filter
-        """
-        self.request.actionmenu.add(
-            ViewLink(
-                u"Revenir à l'étape précédente",
-                path="admin_index",
-            )
-        )
+    def stream_columns(self, item):
+        if item.revoked:
+            label = u"""
+            <span class='label label-danger'>
+                Cette application a été révoquée
+            </span>&nbsp;{}""".format(item.name)
+        else:
+            label = item.name
+        yield label
 
-    def query(self):
+        yield item.client_id
+
+        scopes = u""
+        for scope in item.get_scopes():
+            scopes += u"<li>{}</li>".format(scope)
+        yield u"""<ul>{}</ul>""".format(scopes)
+
+        redirections = u""
+        for redir in item.redirect_uris:
+            redirections += u"<li>{}</li>".format(redir.uri)
+        yield u"""<ul>{}</ul>""".format(redirections)
+
+    def load_items(self):
         return OidcClient.query().options(
             load_only('name', 'client_id', 'scopes'),
         )
@@ -364,110 +372,79 @@ class ClientListView(BaseListView):
 
         :param obj oidc_client: An OidcClient instance
         """
-        yield (
-            self.request.route_path(
-                "/admin/oidc/clients/{id}",
-                id=oidc_client.id,
-            ),
+        yield Link(
+            self._get_item_url(oidc_client),
             u"Voir",
-            u"Voir cet élément",
-            u"fa fa-eye",
-            {}
+            icon=u"eye",
         )
-        yield (
-            self.request.route_path(
-                "/admin/oidc/clients/{id}",
-                id=oidc_client.id,
-                _query={'action': 'edit'}
-            ),
+        yield Link(
+            self._get_item_url(oidc_client, action="edit"),
             u"Modifier",
-            u"Modifier cet élément",
-            u"pencil",
-            {}
+            icon=u"pencil",
         )
         if not oidc_client.revoked:
-            yield (
-                self.request.route_path(
-                    "/admin/oidc/clients/{id}",
-                    id=oidc_client.id,
-                    _query={'action': 'revoke'}
-                ),
+            yield Link(
+                self._get_item_url(oidc_client, action="revoke"),
                 u"Révoquer",
-                u"Révoquer les droits de cette application",
-                u"fa fa-archive",
-                {"onclick": u"return window.confirm('Cette application ne"
-                 u"pourra plus accéder à Autonomie. Continuer ?');"}
+                title=u"Révoquer les droits de cette application",
+                icon=u"archive",
+                confirm=u"Cette application ne"
+                u"pourra plus accéder à Autonomie. Continuer ?"
             )
 
 
 def add_routes(config):
+    config.add_route(OIDC_INDEX_URL, OIDC_INDEX_URL)
+    config.add_route(OIDC_CLIENT_URL, OIDC_CLIENT_URL)
     config.add_route(
-        "/admin/oidc/clients",
-        "/admin/oidc/clients"
-    )
-    config.add_route(
-        "/admin/oidc/clients/{id}",
-        "/admin/oidc/clients/{id}",
+        OIDC_CLIENT_ITEM_URL,
+        OIDC_CLIENT_ITEM_URL,
         traverse="/oidc/clients/{id}",
     )
 
 
 def add_views(config):
-    config.add_view(
+    config.add_admin_view(
+        ClientListView,
+        parent=AdminIndexView,
+        permission="admin.oidc",
+        renderer="autonomie:templates/admin/crud_list.mako",
+    )
+    config.add_admin_view(
         ClientAddView,
-        route_name="/admin/oidc/clients",
+        parent=ClientListView,
         request_param="action=add",
         permission="admin.oidc",
-        renderer="autonomie:templates/base/formpage.mako",
+        renderer='admin/crud_add_edit.mako',
     )
-    config.add_view(
+    config.add_admin_view(
         ClientEditView,
-        route_name="/admin/oidc/clients/{id}",
+        parent=ClientListView,
         request_param="action=edit",
         permission="admin.oidc",
-        renderer="autonomie:templates/base/formpage.mako",
     )
-    config.add_view(
-        client_view,
-        route_name="/admin/oidc/clients/{id}",
+    config.add_admin_view(
+        ClientView,
+        parent=ClientListView,
         permission="admin.oidc",
         renderer="autonomie_oidc_provider:templates/plugin/client.mako",
     )
     config.add_view(
         client_revoke_view,
-        route_name="/admin/oidc/clients/{id}",
+        route_name=OIDC_CLIENT_ITEM_URL,
         request_param="action=revoke",
         permission="admin.oidc",
+        layout="default",
     )
     config.add_view(
         client_secret_refresh_view,
-        route_name="/admin/oidc/clients/{id}",
+        route_name=OIDC_CLIENT_ITEM_URL,
         request_param="action=refresh_secret",
         permission="admin.oidc",
-    )
-    config.add_view(
-        ClientListView,
-        route_name="/admin/oidc/clients",
-        permission="admin.oidc",
-        renderer="autonomie_oidc_provider:templates/plugin/clients.mako",
-    )
-
-
-def add_menu_entry(config):
-    from autonomie.views.admin.main import ADMIN_INDEX_MENUS
-    ADMIN_INDEX_MENUS.append(
-        dict(
-            label=u"Configuration du module d'authentification centralisée "
-            u"(SSO)",
-            route_name="/admin/oidc/clients",
-            title=u"Configurer les droits d'accès des applications "
-            u"utilisant les données Autonomie et son service "
-            u"d'authentification Open Id connect"
-        )
+        layout="default",
     )
 
 
 def includeme(config):
     add_routes(config)
     add_views(config)
-    add_menu_entry(config)

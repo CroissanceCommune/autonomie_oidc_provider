@@ -6,7 +6,7 @@
 import datetime
 
 from autonomie_base.utils.date import format_short_date
-from autonomie.models.user import User
+from autonomie.models.user.user import User
 
 FORMATTERS = {
     long: int,
@@ -31,16 +31,53 @@ class Scope(object):
     key = None
     attributes = ()
 
+    def _produce_from_dotted_key(self, data_key, user_object):
+        """
+        Produce an attribute's value based on a dotted data key (that allows to
+        access related elements)
+        """
+        path = data_key.split('.')
+        data = user_object
+        for segment in path:
+            data = getattr(data, segment, None)
+        data = self._process_complex_value(data)
+        return data
+
+    def _process_serializable_object(self, data):
+        result = data
+        if hasattr(data, '__json__'):
+            result = data.__json__(None)
+        return result
+
+    def _process_list_value(self, data):
+        result = []
+        for d in data:
+            result.append(self._process_serializable_object(d))
+        return result
+
+    def _process_complex_value(self, data):
+        """
+        Process specific case of complex datas
+        :param data: The data to process
+        """
+        if isinstance(data, list):
+            data = self._process_list_value(data)
+        else:
+            data = self._process_serializable_object(data)
+        return data
+
     def produce(self, user_object):
         res = {}
         for label, data_key in self.attributes:
             if data_key:
-                data_value = getattr(user_object, data_key, '')
-                if hasattr(data_value, '__json__'):
-                    data_value = data_value.__json__(None)
-                elif isinstance(data_value, list):
-                    data_value = [data.__json__(None) for data in data_value]
-
+                if '.' in data_key:
+                    data_value = self._produce_from_dotted_key(
+                        data_key,
+                        user_object
+                    )
+                else:
+                    data_value = getattr(user_object, data_key, '')
+                    data_value = self._process_complex_value(data_value)
                 res[label] = data_value
             else:
                 # Not implemented
@@ -64,7 +101,7 @@ class ProfileScope(Scope):
         ('firstname', 'firstname'),
         ('lastname', 'lastname'),
         ('email', 'email'),
-        ('login', 'login'),
+        ('login', 'login.login'),
         ('groups', '_groups'),
     )
 

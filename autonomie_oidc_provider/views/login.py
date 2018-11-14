@@ -25,8 +25,8 @@ import colander
 from pyramid.security import NO_PERMISSION_REQUIRED
 from pyramid.httpexceptions import HTTPFound, HTTPForbidden
 
-from autonomie.forms.user import (
-    auth,
+from autonomie.forms.user.login import (
+    get_auth_validator,
     AuthSchema,
 )
 from autonomie.views.auth import (
@@ -112,7 +112,7 @@ def login_view(request):
     """
     View for login handling
     """
-    schema = OIDCSchema(title="", validator=auth)
+    schema = OIDCSchema(title="", validator=get_auth_validator())
     schema = schema.bind(request=request)
     form = deform.Form(
         schema,

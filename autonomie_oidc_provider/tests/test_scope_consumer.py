@@ -13,12 +13,18 @@ class Dummy:
 
 
 @pytest.fixture
-def user():
+def login():
     return Dummy(
-        login="login",
+        login="login"
+    )
+
+@pytest.fixture
+def user(login):
+    return Dummy(
         firstname="firstname",
         lastname="lastname",
         email="email@mail.fr",
+        login=login
     )
 
 
@@ -27,3 +33,4 @@ def test_profile_scope(user):
     claims = consumer.produce(user)
 
     assert claims['email'] == user.email
+    assert claims['login'] == 'login'
